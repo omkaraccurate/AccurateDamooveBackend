@@ -9,9 +9,10 @@
       padding: 20px;
     }
 
-    select {
+    select, button {
       padding: 8px;
       margin-bottom: 20px;
+      margin-right: 10px;
     }
 
     table {
@@ -29,10 +30,15 @@
     th {
       background-color: #f5f5f5;
     }
+
+    hr {
+      margin: 30px 0;
+    }
   </style>
 </head>
 <body>
   <h2>📊 Tracker Database</h2>
+
   <label for="tableSelector">Choose a table:</label>
   <select id="tableSelector">
     <option value="">-- Select a table --</option>
@@ -48,6 +54,10 @@
     <option value="RangeSpeedTable">RangeSpeedTable</option>
   </select>
 
+  <button id="showTripsBtn">🚗 Show All Trips</button>
+
+  <hr />
+
   <table id="dataTable">
     <thead id="tableHead"></thead>
     <tbody id="tableBody"></tbody>
@@ -55,6 +65,7 @@
 
   <script>
     const tableSelector = document.getElementById("tableSelector");
+    const showTripsBtn = document.getElementById("showTripsBtn");
     const tableHead = document.getElementById("tableHead");
     const tableBody = document.getElementById("tableBody");
 
@@ -62,22 +73,36 @@
       const tableName = tableSelector.value;
       tableHead.innerHTML = "";
       tableBody.innerHTML = "";
-
       if (!tableName) return;
+      fetchTableData(`http://192.168.10.126:5000/api/${tableName}`);
+    });
 
+    showTripsBtn.addEventListener("click", () => {
+      tableSelector.value = ""; // reset dropdown
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+      fetchTableData("http://192.168.10.126:5000/triprecords");
+    });
+
+    async function fetchTableData(url) {
       try {
-        const response = await fetch(`http://192.168.10.126:5000/api/${tableName}`);
+        const response = await fetch(url);
         const result = await response.json();
 
-        if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
+        if (!result || !Array.isArray(result.data ?? result)) {
           tableHead.innerHTML = "<tr><th>No Data Found</th></tr>";
           return;
         }
 
-        const data = result.data;
+        const data = result.data ?? result;
+        if (!data.length) {
+          tableHead.innerHTML = "<tr><th>No Data</th></tr>";
+          return;
+        }
+
         const headers = Object.keys(data[0]);
 
-        // Create header row
+        // Table Header
         const headerRow = document.createElement("tr");
         headers.forEach(header => {
           const th = document.createElement("th");
@@ -86,7 +111,7 @@
         });
         tableHead.appendChild(headerRow);
 
-        // Create table rows
+        // Table Body
         data.forEach(row => {
           const tr = document.createElement("tr");
           headers.forEach(header => {
@@ -101,7 +126,7 @@
         tableHead.innerHTML = "<tr><th>Error</th></tr>";
         tableBody.innerHTML = "<tr><td>Unable to fetch data.</td></tr>";
       }
-    });
+    }
   </script>
 </body>
 </html>

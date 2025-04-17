@@ -177,6 +177,79 @@ app.use(express.static(path.join(__dirname)));
 app.get("/ui", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
+app.get('/triprecords', (req, res) => {
+  console.log("Entering /triprecords");
+
+  const query = `
+    SELECT 
+    start_points.UNIQUE_ID,
+    track.start_date,
+    start_points.latitude AS start_latitude,
+    start_points.longitude AS start_longitude,
+    end_points.latitude AS end_latitude,
+    end_points.longitude AS end_longitude,
+    start_points.device_id,
+
+    6371 * acos(
+        cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+        cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+        sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+    ) AS distance_km
+
+FROM
+    (SELECT UNIQUE_ID, latitude, longitude, device_id
+     FROM EventsStartPointTable
+     WHERE ID IN (
+         SELECT MIN(ID)
+         FROM EventsStartPointTable
+         GROUP BY UNIQUE_ID
+     )) AS start_points
+
+JOIN
+    (SELECT UNIQUE_ID, latitude, longitude
+     FROM EventsStopPointTable
+     WHERE ID IN (
+         SELECT MAX(ID)
+         FROM EventsStopPointTable
+         GROUP BY UNIQUE_ID
+     )) AS end_points
+ON start_points.UNIQUE_ID = end_points.UNIQUE_ID
+
+JOIN TrackTable AS track
+ON start_points.UNIQUE_ID = track.track_id
+
+WHERE
+    -- Ensure latitudes and longitudes are not 0 or invalid
+    start_points.latitude != 0 AND start_points.longitude != 0
+    AND end_points.latitude != 0 AND end_points.longitude != 0
+    
+    -- Distance should be greater than or equal to 1 km
+    AND 6371 * acos(
+        cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+        cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+        sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+    ) >= 1;
+
+
+  `;
+
+  console.log("Executing query: ", query);  // Debugging log
+
+  db.all(query, [], (err, rows) => {
+      if (err) {
+          console.error('SQL Error:', err.message);
+          res.status(500).json({ error: err.message });
+      } else {
+          console.log("Query result: ", rows);  // Debugging log
+          res.json({ success: true, data: rows });
+      }
+  });
+});
+
+
+
+
+
 
 // Replace "0.0.0.0" with your local IP (e.g., "192.168.1.100")
 const LOCAL_IP =  "192.168.10.126"; // Change this to your IP
