@@ -7,7 +7,7 @@ app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use(cors());
 // Correct file path
-const dbPath = "C:/Users/Accurate AI/Desktop/tracking_raw_db_290325.db";
+const dbPath = "C:/Users/Accurate AI/Desktop/tracking_raw_db_150425.db";
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error("❌ Error opening database:", err.message);
@@ -77,7 +77,7 @@ app.post("/api/TrackTable", (req, res) => {
     return res.status(400).json({ success: false, error: "Invalid request format!" });
   }
 
-  insertBulkData("TrackTable", ["id", "track_id", "track_state", "start_date", "stop_reason", "start_reason"], req.body.data, res);
+  insertBulkData("TrackTable", ["id", "track_id", "track_state", "start_date", "stop_reason", "start_reason","device_id"], req.body.data, res);
 });
 
 
@@ -88,52 +88,98 @@ app.post("/api/LastKnownPointTable", (req, res) => {
   if (!req.body.data || !Array.isArray(req.body.data)) {
     return res.status(400).json({ success: false, error: "Invalid request format!" });
   }
-  insertBulkData("LastKnownPointTable", ["id","track_id", "latitude", "longitude","accuracy","point_date","point_origin"], req.body.data, res);
+  insertBulkData("LastKnownPointTable", ["id","track_id", "latitude", "longitude","accuracy","point_date","point_origin","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `EventsTable`
 app.post("/api/EventsTable", (req, res) => {
-  insertBulkData("EventsTable", ["ID","UUID", "timeStart", "duration","pureDuration","speedStart","speedStop","speedMedian","prevEventSpeed","accelerationDirect","accelerationLateral","accelerationVertical","accelerationDirectEnd","accelerationLateralEnd","accelerationVerticalEnd","UNIQUE_ID","type","accidentTrigger","reliability"], req.body.data, res);
+  insertBulkData("EventsTable", ["ID","UUID", "timeStart", "duration","pureDuration","speedStart","speedStop","speedMedian","prevEventSpeed","accelerationDirect","accelerationLateral","accelerationVertical","accelerationDirectEnd","accelerationLateralEnd","accelerationVerticalEnd","UNIQUE_ID","type","accidentTrigger","reliability","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `EventsStartPointTable`
 app.post("/api/EventsStartPointTable", (req, res) => {
-  insertBulkData("EventsStartPointTable", ["ID", "timeStart", "latitude","longitude","UNIQUE_ID","type"], req.body.data, res);
+  insertBulkData("EventsStartPointTable", ["ID", "timeStart", "latitude","longitude","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `EventsStopPointTable`
 app.post("/api/EventsStopPointTable", (req, res) => {
-  insertBulkData("EventsStopPointTable", ["ID", "timeStart", "latitude","longitude","UNIQUE_ID","type"], req.body.data, res);
+  insertBulkData("EventsStopPointTable", ["ID", "timeStart", "latitude","longitude","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `RangeDirectTable`
 app.post("/api/RangeDirectTable", (req, res) => {
-  insertBulkData("RangeDirectTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type"], req.body.data, res);
+  insertBulkData("RangeDirectTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `RangeLateralTable`
 app.post("/api/RangeLateralTable", (req, res) => {
-  insertBulkData("RangeLateralTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type"], req.body.data, res);
+  insertBulkData("RangeLateralTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `RangeVerticalTable`
 app.post("/api/RangeVerticalTable", (req, res) => {
-  insertBulkData("RangeVerticalTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type"], req.body.data, res);
+  insertBulkData("RangeVerticalTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `RangeAccuracyTable`
 app.post("/api/RangeAccuracyTable", (req, res) => {
-  insertBulkData("RangeAccuracyTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type"], req.body.data, res);
+  insertBulkData("RangeAccuracyTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
 // ✅ Insert into `RangeSpeedTable`
 app.post("/api/RangeSpeedTable", (req, res) => {
-  insertBulkData("RangeSpeedTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type"], req.body.data, res);
+  insertBulkData("RangeSpeedTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
+app.get("/", (req, res) => {
+  res.send("Welcome to fleet management");
+});
+
+// Generic GET endpoint to fetch all rows from a table
+const getTableData = (table, res) => {
+  const sql = `SELECT * FROM ${table}`;
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      console.error(`❌ Error fetching from ${table}:`, err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+    res.json({ success: true, data: rows });
+  });
+};
+
+app.get("/api/:table", (req, res) => {
+  const allowedTables = [
+    "TrackTable",
+    "LastKnownPointTable",
+    "EventsTable",
+    "EventsStartPointTable",
+    "EventsStopPointTable",
+    "RangeDirectTable",
+    "RangeLateralTable",
+    "RangeVerticalTable",
+    "RangeAccuracyTable",
+    "RangeSpeedTable",
+  ];
+
+  const table = req.params.table;
+  if (!allowedTables.includes(table)) {
+    return res.status(400).json({ success: false, error: "Invalid table name" });
+  }
+
+  getTableData(table, res);
+});
+const path = require("path");
+
+// Serve index.html statically
+app.use(express.static(path.join(__dirname)));
+
+// Serve index.html on /ui route
+app.get("/ui", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
 // Replace "0.0.0.0" with your local IP (e.g., "192.168.1.100")
-const LOCAL_IP = "192.168.0.198"; // Change this to your IP
+const LOCAL_IP =  "192.168.10.126"; // Change this to your IP
 const PORT = 5000;
 
 app.listen(PORT, LOCAL_IP, () => console.log(`✅ API running at http://${LOCAL_IP}:${PORT}`));

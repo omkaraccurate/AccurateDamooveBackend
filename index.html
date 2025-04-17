@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Tracker Database</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    select {
+      padding: 8px;
+      margin-bottom: 20px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <h2>📊 Tracker Database</h2>
+  <label for="tableSelector">Choose a table:</label>
+  <select id="tableSelector">
+    <option value="">-- Select a table --</option>
+    <option value="TrackTable">TrackTable</option>
+    <option value="LastKnownPointTable">LastKnownPointTable</option>
+    <option value="EventsTable">EventsTable</option>
+    <option value="EventsStartPointTable">EventsStartPointTable</option>
+    <option value="EventsStopPointTable">EventsStopPointTable</option>
+    <option value="RangeDirectTable">RangeDirectTable</option>
+    <option value="RangeLateralTable">RangeLateralTable</option>
+    <option value="RangeVerticalTable">RangeVerticalTable</option>
+    <option value="RangeAccuracyTable">RangeAccuracyTable</option>
+    <option value="RangeSpeedTable">RangeSpeedTable</option>
+  </select>
+
+  <table id="dataTable">
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <script>
+    const tableSelector = document.getElementById("tableSelector");
+    const tableHead = document.getElementById("tableHead");
+    const tableBody = document.getElementById("tableBody");
+
+    tableSelector.addEventListener("change", async () => {
+      const tableName = tableSelector.value;
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+
+      if (!tableName) return;
+
+      try {
+        const response = await fetch(`http://192.168.10.126:5000/api/${tableName}`);
+        const result = await response.json();
+
+        if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
+          tableHead.innerHTML = "<tr><th>No Data Found</th></tr>";
+          return;
+        }
+
+        const data = result.data;
+        const headers = Object.keys(data[0]);
+
+        // Create header row
+        const headerRow = document.createElement("tr");
+        headers.forEach(header => {
+          const th = document.createElement("th");
+          th.textContent = header;
+          headerRow.appendChild(th);
+        });
+        tableHead.appendChild(headerRow);
+
+        // Create table rows
+        data.forEach(row => {
+          const tr = document.createElement("tr");
+          headers.forEach(header => {
+            const td = document.createElement("td");
+            td.textContent = row[header];
+            tr.appendChild(td);
+          });
+          tableBody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        tableHead.innerHTML = "<tr><th>Error</th></tr>";
+        tableBody.innerHTML = "<tr><td>Unable to fetch data.</td></tr>";
+      }
+    });
+  </script>
+</body>
+</html>
