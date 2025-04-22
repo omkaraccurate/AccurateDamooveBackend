@@ -247,6 +247,39 @@ WHERE
 });
 
 
+app.get('/geopoints', (req, res) => {
+  const { unique_id } = req.query;  // Getting unique_id from query params
+
+  if (!unique_id) {
+      return res.status(400).json({ error: 'Missing unique_id query parameter' });
+  }
+
+  const sql = `
+    SELECT latitude, longitude
+FROM (
+    SELECT latitude, longitude, ID
+    FROM EventsStartPointTable
+    WHERE UNIQUE_ID = ?
+
+    UNION ALL
+
+    SELECT latitude, longitude, ID
+    FROM EventsStopPointTable
+    WHERE UNIQUE_ID = ?
+)
+ORDER BY ID ASC;
+
+  `;
+
+  db.all(sql, [unique_id], (err, rows) => {
+      if (err) {
+          console.error('Query error:', err.message);
+          return res.status(500).json({ error: 'Database query failed' });
+      }
+
+      res.json(rows); // returns array of {latitude, longitude}
+  });
+});
 
 
 
