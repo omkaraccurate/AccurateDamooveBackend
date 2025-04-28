@@ -1,47 +1,44 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Tracker Database</title>
+  <meta charset="UTF-8">
+  <title>Tracker DB Viewer</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
     }
-
     select, button {
       padding: 8px;
-      margin-bottom: 20px;
-      margin-right: 10px;
+      margin: 10px 5px 10px 0;
+      font-size: 16px;
     }
-
     table {
-      border-collapse: collapse;
       width: 100%;
-      margin-top: 10px;
+      border-collapse: collapse;
+      margin-top: 20px;
     }
-
     th, td {
-      border: 1px solid #ccc;
+      border: 1px solid #ddd;
       padding: 8px;
       text-align: left;
     }
-
     th {
-      background-color: #f5f5f5;
+      background-color: #f2f2f2;
     }
-
-    hr {
-      margin: 30px 0;
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
     }
   </style>
 </head>
 <body>
-  <h2>📊 Tracker Database</h2>
 
-  <label for="tableSelector">Choose a table:</label>
+  <h1>Tracker DB Viewer</h1>
+
+  <label for="tableSelector">Select a Table:</label>
   <select id="tableSelector">
-    <option value="">-- Select a table --</option>
+    <option value="">--Select Table--</option>
+    <option value="SampleTable">SampleTable</option>
     <option value="TrackTable">TrackTable</option>
     <option value="LastKnownPointTable">LastKnownPointTable</option>
     <option value="EventsTable">EventsTable</option>
@@ -54,9 +51,8 @@
     <option value="RangeSpeedTable">RangeSpeedTable</option>
   </select>
 
-  <button id="showTripsBtn">🚗 Show All Trips</button>
-
-  <hr />
+  <button id="showTripsBtn">Show Trips</button>
+  <button id="clearDatabaseBtn" style="background-color: #ff4d4d; color: white;">Clear Database</button>
 
   <table id="dataTable">
     <thead id="tableHead"></thead>
@@ -64,30 +60,23 @@
   </table>
 
   <script>
-    const tableSelector = document.getElementById("tableSelector");
-    const showTripsBtn = document.getElementById("showTripsBtn");
-    const tableHead = document.getElementById("tableHead");
-    const tableBody = document.getElementById("tableBody");
+    const tableSelector = document.getElementById('tableSelector');
+    const showTripsBtn = document.getElementById('showTripsBtn');
+    const clearDatabaseBtn = document.getElementById('clearDatabaseBtn');
+    const tableHead = document.getElementById('tableHead');
+    const tableBody = document.getElementById('tableBody');
 
-    tableSelector.addEventListener("change", async () => {
-      const tableName = tableSelector.value;
-      tableHead.innerHTML = "";
-      tableBody.innerHTML = "";
-      if (!tableName) return;
-      fetchTableData(`http://192.168.10.126:5000/api/${tableName}`);
-    });
+    const baseURL = `${window.location.protocol}//${window.location.host}`;
 
-    showTripsBtn.addEventListener("click", () => {
-      tableSelector.value = ""; // reset dropdown
-      tableHead.innerHTML = "";
-      tableBody.innerHTML = "";
-      fetchTableData("http://192.168.10.126:5000/triprecords");
-    });
-
-    async function fetchTableData(url) {
+    async function fetchTableData(endpoint) {
       try {
+        const url = `${baseURL}${endpoint}`;
         const response = await fetch(url);
         const result = await response.json();
+
+        // Clear existing table
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
 
         if (!result || !Array.isArray(result.data ?? result)) {
           tableHead.innerHTML = "<tr><th>No Data Found</th></tr>";
@@ -127,6 +116,46 @@
         tableBody.innerHTML = "<tr><td>Unable to fetch data.</td></tr>";
       }
     }
+
+    tableSelector.addEventListener("change", () => {
+      const tableName = tableSelector.value;
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+      if (!tableName) return;
+      fetchTableData(`/api/${tableName}`);
+    });
+
+    showTripsBtn.addEventListener("click", () => {
+      tableSelector.value = "";
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+      fetchTableData("/triprecords");
+    });
+
+    clearDatabaseBtn.addEventListener("click", async () => {
+      if (confirm("⚠️ Are you sure you want to CLEAR the database? This action cannot be undone!")) {
+        try {
+          clearDatabaseBtn.disabled = true;
+          clearDatabaseBtn.textContent = "Clearing...";
+          const response = await fetch(`${baseURL}/clear-database`, { method: 'POST' });
+          const result = await response.json();
+          if (result.success) {
+            alert("Database cleared successfully.");
+            tableHead.innerHTML = "";
+            tableBody.innerHTML = "";
+          } else {
+            alert("Failed to clear database.");
+          }
+        } catch (error) {
+          console.error('Error clearing database:', error);
+          alert("Error clearing database.");
+        } finally {
+          clearDatabaseBtn.disabled = false;
+          clearDatabaseBtn.textContent = "Clear Database";
+        }
+      }
+    });
   </script>
+
 </body>
 </html>

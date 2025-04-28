@@ -55,7 +55,7 @@ const insertBulkData = (table, columns, records, res) => {
             if (hasError) {
               res.status(500).json({ success: false, error: "Some records failed to insert." });
             } else {
-              res.json({ success: true, message: `✅ ${insertedCount} record(s) inserted successfully!` });
+              res.status(200).json({ success: true, message: `✅ ${insertedCount} record(s) inserted successfully!` });
             }
           }
         });
@@ -143,11 +143,13 @@ const getTableData = (table, res) => {
       console.error(`❌ Error fetching from ${table}:`, err.message);
       return res.status(500).json({ success: false, error: err.message });
     }
-    res.json({ success: true, data: rows });
+    res.status(200).json({ success: true, data: rows });
+    console.log(rows)
   });
 };
 
 app.get("/api/:table", (req, res) => {
+  const tableName = req.params.table.replace(/-/g, '_');
   const allowedTables = [
     "TrackTable",
     "LastKnownPointTable",
@@ -161,12 +163,12 @@ app.get("/api/:table", (req, res) => {
     "RangeSpeedTable",
   ];
 
-  const table = req.params.table;
-  if (!allowedTables.includes(table)) {
+  if (!allowedTables.includes(tableName)) {
+    console.log(tableName)
     return res.status(400).json({ success: false, error: "Invalid table name" });
   }
 
-  getTableData(table, res);
+  getTableData(tableName, res);
 });
 const path = require("path");
 
@@ -241,46 +243,125 @@ WHERE
           res.status(500).json({ error: err.message });
       } else {
           console.log("Query result: ", rows);  // Debugging log
-          res.json({ success: true, data: rows });
+          res.status(200).json({ success: true, data: rows });
       }
   });
 });
 
 
 app.get('/geopoints', (req, res) => {
-  const { unique_id } = req.query;  // Getting unique_id from query params
+  const { unique_id } = req.query;
 
   if (!unique_id) {
-      return res.status(400).json({ error: 'Missing unique_id query parameter' });
+    return res.status(400).json({
+      success: false,
+      error: 'Missing unique_id query parameter',
+    });
   }
 
   const sql = `
     SELECT latitude, longitude
-FROM (
-    SELECT latitude, longitude, ID
-    FROM EventsStartPointTable
-    WHERE UNIQUE_ID = ?
+    FROM (
+        SELECT latitude, longitude, ID
+        FROM EventsStartPointTable
+        WHERE UNIQUE_ID = ?
 
-    UNION ALL
+        UNION ALL
 
-    SELECT latitude, longitude, ID
-    FROM EventsStopPointTable
-    WHERE UNIQUE_ID = ?
-)
-ORDER BY ID ASC;
-
+        SELECT latitude, longitude, ID
+        FROM EventsStopPointTable
+        WHERE UNIQUE_ID = ?
+    )
+    ORDER BY ID ASC;
   `;
 
-  db.all(sql, [unique_id], (err, rows) => {
-      if (err) {
-          console.error('Query error:', err.message);
-          return res.status(500).json({ error: 'Database query failed' });
-      }
+  db.all(sql, [unique_id, unique_id], (err, rows) => {
+    if (err) {
+      console.error('❌ Query error:', err.message);
+      return res.status(500).json({
+        success: false,
+        error: 'Database query failed',
+      });
+    }
 
-      res.json(rows); // returns array of {latitude, longitude}
+    res.status(200).json({
+      success: true,
+      data: rows, // [{ latitude, longitude }, ...]
+    });
   });
 });
 
+
+app.get('/triprecordfordevice', (req, res) => {
+  console.log("Entering /triprecords");
+
+  const { device_id } = req.query;
+
+  if (!device_id) {
+      return res.status(400).json({ error: 'Missing device_id query parameter' });
+  }
+
+  const query = `
+      SELECT 
+          start_points.UNIQUE_ID,
+          track.start_date,
+          start_points.latitude AS start_latitude,
+          start_points.longitude AS start_longitude,
+          end_points.latitude AS end_latitude,
+          end_points.longitude AS end_longitude,
+          start_points.device_id,
+
+          6371 * acos(
+              cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+              cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+              sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+          ) AS distance_km
+
+      FROM
+          (SELECT UNIQUE_ID, latitude, longitude, device_id
+           FROM EventsStartPointTable
+           WHERE ID IN (
+               SELECT MIN(ID)
+               FROM EventsStartPointTable
+               GROUP BY UNIQUE_ID
+           )) AS start_points
+
+      JOIN
+          (SELECT UNIQUE_ID, latitude, longitude
+           FROM EventsStopPointTable
+           WHERE ID IN (
+               SELECT MAX(ID)
+               FROM EventsStopPointTable
+               GROUP BY UNIQUE_ID
+           )) AS end_points
+      ON start_points.UNIQUE_ID = end_points.UNIQUE_ID
+
+      JOIN TrackTable AS track
+      ON start_points.UNIQUE_ID = track.track_id
+
+      WHERE
+          start_points.latitude != 0 AND start_points.longitude != 0
+          AND end_points.latitude != 0 AND end_points.longitude != 0
+          AND 6371 * acos(
+              cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+              cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+              sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+          ) >= 1
+          AND track.device_id = ?;
+  `;
+
+  console.log("Executing query for device_id:", device_id);
+
+  db.all(query, [device_id], (err, rows) => {
+      if (err) {
+          console.error('SQL Error:', err.message);
+          res.status(500).json({ error: err.message });
+      } else {
+          console.log("Query result: ", rows);
+          res.status(200).json({ success: true, data: rows });
+      }
+  });
+});
 
 
 
@@ -289,8 +370,7 @@ const LOCAL_IP =  "192.168.10.126"; // Change this to your IP
 const PORT = 5000;
 
 app.listen(PORT, LOCAL_IP, () => console.log(`✅ API running at http://${LOCAL_IP}:${PORT}`));
-app.use(express.json({ limit: "50mb" })); // Allows up to 50MB payload size
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
 
 
 // Handle server shutdown gracefully
