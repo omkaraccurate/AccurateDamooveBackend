@@ -7,7 +7,7 @@ app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use(cors());
 // Correct file path
-const dbPath = "C:/Users/Accurate AI/Desktop/tracking_raw_db_150425.db";
+const dbPath = "C:/Users/Accurate AI/Desktop/tracking_raw_DB_150525.db";
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error("❌ Error opening database:", err.message);
@@ -83,7 +83,7 @@ app.post("/api/TrackTable", (req, res) => {
 
 // ✅ Insert into `LastKnownPointTable`
 app.post("/api/LastKnownPointTable", (req, res) => {
-  console.log("Received body:", req.body);
+  //console.log("Received body:", req.body);
 
   if (!req.body.data || !Array.isArray(req.body.data)) {
     return res.status(400).json({ success: false, error: "Invalid request format!" });
@@ -144,9 +144,60 @@ const getTableData = (table, res) => {
       return res.status(500).json({ success: false, error: err.message });
     }
     res.status(200).json({ success: true, data: rows });
-    console.log(rows)
+   // console.log(rows)
   });
 };
+
+// ✅ Insert into `SampleTable`
+app.post("/api/SampleTable", (req, res) => {
+  //console.log("Received body:", req.body);
+
+  if (!req.body.data || !Array.isArray(req.body.data)) {
+    return res.status(400).json({ success: false, error: "Invalid request format!" });
+  }
+
+  insertBulkData("SampleTable", [
+    "ID",
+    "latitude",
+    "longitude",
+    "timestamp",
+    "tick_timestamp",
+    "speed_kmh",
+    "midSpeed",
+    "course",
+    "height",
+    "acceleration",
+    "deceleration",
+    "lateral",
+    "yaw",
+    "total_meters",
+    "established_indexA",
+    "established_indexB",
+    "start_date",
+    "end_date",
+    "unique_id",
+    "number",
+    "device_id",
+    "acceleration_x",
+    "acceleration_y",
+    "acceleration_z",
+    "gyroscope_x",
+    "gyroscope_y",
+    "gyroscope_z",
+    "acceleration_x_original",
+    "acceleration_y_original",
+    "acceleration_z_original",
+    "gyroscope_x_original",
+    "gyroscope_y_original",
+    "gyroscope_z_original",
+    "accuracy",
+    "screen_on",
+    "screen_blocked",
+    "vehicle_indicators",
+    "quantile"
+  ], req.body.data, res);
+});
+
 
 app.get("/api/:table", (req, res) => {
   const tableName = req.params.table.replace(/-/g, '_');
@@ -161,6 +212,7 @@ app.get("/api/:table", (req, res) => {
     "RangeVerticalTable",
     "RangeAccuracyTable",
     "RangeSpeedTable",
+    "SampleTable"
   ];
 
   if (!allowedTables.includes(tableName)) {
@@ -366,7 +418,7 @@ app.get('/triprecordfordevice', (req, res) => {
 
 
 // Replace "0.0.0.0" with your local IP (e.g., "192.168.1.100")
-const LOCAL_IP =  "192.168.10.126"; // Change this to your IP
+const LOCAL_IP =  "192.168.11.65"; // Change this to your IP
 const PORT = 5000;
 
 app.listen(PORT, LOCAL_IP, () => console.log(`✅ API running at http://${LOCAL_IP}:${PORT}`));
