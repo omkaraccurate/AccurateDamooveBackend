@@ -131,6 +131,31 @@ app.post("/api/RangeSpeedTable", (req, res) => {
   insertBulkData("RangeSpeedTable", ["ID","timeStart","max","min","median","quantile_05","quantile_95","UNIQUE_ID","type","device_id"], req.body.data, res);
 });
 
+app.post('/api/devices', (req, res) => {
+  const { device_id, device_name } = req.body;
+
+  if (!device_id || !device_name) {
+    return res.status(400).json({ error: 'device_id and device_name are required' });
+  }
+
+  const insertQuery = `
+    INSERT INTO devices (device_id, device_name)
+    VALUES (?, ?);
+  `;
+
+  db.run(insertQuery, [device_id, device_name], function (err) {
+    if (err) {
+      if (err.message.includes('UNIQUE')) {
+        return res.status(409).json({ error: 'Device ID or name already exists' });
+      }
+      return res.status(500).json({ error: 'Failed to insert device' });
+    }
+
+    res.status(200).json({ message: 'Device added', id: this.lastID });
+  });
+});
+
+
 app.get("/", (req, res) => {
   res.send("Welcome to fleet management");
 });
