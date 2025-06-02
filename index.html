@@ -2,152 +2,229 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tracker DB Viewer</title>
+  <title>Tracker Dashboard</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f6f8;
+      color: #333;
+    }
+    header {
+      background-color: #2d3e50;
+      color: white;
       padding: 20px;
+      text-align: center;
+    }
+    .dashboard {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1fr 3fr;
+      gap: 20px;
+    }
+    .controls {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .controls h2 {
+      margin-top: 0;
     }
     select, button {
-      padding: 8px;
-      margin: 10px 5px 10px 0;
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
       font-size: 16px;
+    }
+    .trip-table {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      overflow-x: auto;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
+      margin-top: 10px;
     }
     th, td {
       border: 1px solid #ddd;
-      padding: 8px;
+      padding: 10px;
       text-align: left;
     }
     th {
-      background-color: #f2f2f2;
+      background-color: #f0f0f0;
     }
     tr:nth-child(even) {
-      background-color: #f9f9f9;
+      background-color: #fafafa;
+    }
+    .card {
+      margin-top: 20px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
   </style>
 </head>
 <body>
 
-  <h1>Tracker DB Viewer</h1>
+  <header>
+    <h1>ACCURATE Damoov</h1>
+  </header>
 
-  <label for="tableSelector">Select a Table:</label>
-  <select id="tableSelector">
-    <option value="">--Select Table--</option>
-    <option value="TrackTable">TrackTable</option>
-    <option value="LastKnownPointTable">LastKnownPointTable</option>
-    <option value="EventsTable">EventsTable</option>
-    <option value="EventsStartPointTable">EventsStartPointTable</option>
-    <option value="EventsStopPointTable">EventsStopPointTable</option>
-    <option value="RangeDirectTable">RangeDirectTable</option>
-    <option value="RangeLateralTable">RangeLateralTable</option>
-    <option value="RangeVerticalTable">RangeVerticalTable</option>
-    <option value="RangeAccuracyTable">RangeAccuracyTable</option>
-    <option value="RangeSpeedTable">RangeSpeedTable</option>
-    <option value="SampleTable">SampleTable</option>
-  </select>
+  <div class="dashboard">
+    <!-- Sidebar controls -->
+    <div class="controls">
+      <h2>Data Controls</h2>
+      <label for="tableSelector">Track Trash 🗑️🚘:</label>
+      <select id="tableSelector">
+        <option value="">--Select Table--</option>
+        <option value="TrackTable">TrackTable</option>
+        <option value="LastKnownPointTable">LastKnownPointTable</option>
+        <option value="EventsTable">EventsTable</option>
+        <option value="EventsStartPointTable">EventsStartPointTable</option>
+        <option value="EventsStopPointTable">EventsStopPointTable</option>
+        <option value="RangeDirectTable">RangeDirectTable</option>
+        <option value="RangeLateralTable">RangeLateralTable</option>
+        <option value="RangeVerticalTable">RangeVerticalTable</option>
+        <option value="RangeAccuracyTable">RangeAccuracyTable</option>
+        <option value="RangeSpeedTable">RangeSpeedTable</option>
+        <option value="SampleTable">SampleTable</option>
+        <option value="devices">devices</option>
+      </select>
 
-  <button id="showTripsBtn">Show Trips</button>
-  <button id="clearDatabaseBtn" style="background-color: #ff4d4d; color: white;">Clear Database</button>
+      <button id="showTripsBtn">DriveHub 🚗🧠</button>
+      <button id="clearDatabaseBtn" style="background-color: #d9534f; color: white;">Clear Database</button>
+    </div>
 
-  <table id="dataTable">
-    <thead id="tableHead"></thead>
-    <tbody id="tableBody"></tbody>
-  </table>
+    <!-- Data Display -->
+    <div class="trip-table">
+      <h2 id="tableTitle">Trip Data</h2>
+      <div id="tripCards"></div>
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
 
   <script>
+    const baseURL = `${window.location.protocol}//${window.location.host}`;
     const tableSelector = document.getElementById('tableSelector');
     const showTripsBtn = document.getElementById('showTripsBtn');
     const clearDatabaseBtn = document.getElementById('clearDatabaseBtn');
     const tableHead = document.getElementById('tableHead');
     const tableBody = document.getElementById('tableBody');
-
-    const baseURL = `${window.location.protocol}//${window.location.host}`;
+    const tripCards = document.getElementById('tripCards');
+    const tableTitle = document.getElementById('tableTitle');
 
     async function fetchTableData(endpoint) {
       try {
-        const url = `${baseURL}${endpoint}`;
-        const response = await fetch(url);
+        const response = await fetch(`${baseURL}${endpoint}`);
         const result = await response.json();
-
-        // Clear existing table
-        tableHead.innerHTML = "";
-        tableBody.innerHTML = "";
-
-        if (!result || !Array.isArray(result.data ?? result)) {
-          tableHead.innerHTML = "<tr><th>No Data Found</th></tr>";
-          return;
-        }
-
         const data = result.data ?? result;
-        if (!data.length) {
-          tableHead.innerHTML = "<tr><th>No Data</th></tr>";
+
+        tableHead.innerHTML = '';
+        tableBody.innerHTML = '';
+        tripCards.innerHTML = '';
+
+        if (!Array.isArray(data) || data.length === 0) {
+          tableHead.innerHTML = '<tr><th>No Data</th></tr>';
           return;
         }
 
         const headers = Object.keys(data[0]);
-
-        // Table Header
-        const headerRow = document.createElement("tr");
+        const headerRow = document.createElement('tr');
         headers.forEach(header => {
-          const th = document.createElement("th");
+          const th = document.createElement('th');
           th.textContent = header;
           headerRow.appendChild(th);
         });
         tableHead.appendChild(headerRow);
 
-        // Table Body
         data.forEach(row => {
-          const tr = document.createElement("tr");
+          const tr = document.createElement('tr');
           headers.forEach(header => {
-            const td = document.createElement("td");
+            const td = document.createElement('td');
             td.textContent = row[header];
             tr.appendChild(td);
           });
           tableBody.appendChild(tr);
         });
       } catch (err) {
-        console.error("Error fetching data:", err);
-        tableHead.innerHTML = "<tr><th>Error</th></tr>";
-        tableBody.innerHTML = "<tr><td>Unable to fetch data.</td></tr>";
+        console.error(err);
+        tableHead.innerHTML = '<tr><th>Error</th></tr>';
+        tableBody.innerHTML = '<tr><td>Could not load data.</td></tr>';
       }
     }
 
-    tableSelector.addEventListener("change", () => {
+    async function showTripsPerDevice() {
+      try {
+        const response = await fetch(`${baseURL}/triprecordfordevice`);
+        const trips = await response.json();
+        const data = trips.data ?? trips;
+
+        tableHead.innerHTML = '';
+        tableBody.innerHTML = '';
+        tripCards.innerHTML = '';
+        tableTitle.textContent = "Trips Grouped by Device";
+
+        if (!data || !data.length) {
+          tripCards.innerHTML = '<p>No trip data available.</p>';
+          return;
+        }
+
+        // Group by device_id
+        const grouped = {};
+        data.forEach(trip => {
+          const device = trip.device_id || 'Unknown';
+          if (!grouped[device]) grouped[device] = [];
+          grouped[device].push(trip);
+        });
+
+        for (const [device, trips] of Object.entries(grouped)) {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `<h3>Device: ${device}</h3><ul>${trips.map(t => `<li>Trip ID ${t.trip_id} - ${t.total_events} events</li>`).join('')}</ul>`;
+          tripCards.appendChild(card);
+        }
+      } catch (err) {
+        console.error('Error fetching trips:', err);
+        tripCards.innerHTML = '<p>Error loading trip data.</p>';
+      }
+    }
+
+    tableSelector.addEventListener('change', () => {
       const tableName = tableSelector.value;
-      tableHead.innerHTML = "";
-      tableBody.innerHTML = "";
-      if (!tableName) return;
-      fetchTableData(`/api/${tableName}`);
+      tableTitle.textContent = tableName || 'Trip Data';
+      if (tableName) fetchTableData(`/api/${tableName}`);
     });
 
-    showTripsBtn.addEventListener("click", () => {
-      tableSelector.value = "";
-      tableHead.innerHTML = "";
-      tableBody.innerHTML = "";
-      fetchTableData("/triprecords");
+    showTripsBtn.addEventListener('click', () => {
+      tableSelector.value = '';
+      showTripsPerDevice();
     });
 
-    clearDatabaseBtn.addEventListener("click", async () => {
-      if (confirm("⚠️ Are you sure you want to CLEAR the database? This action cannot be undone!")) {
+    clearDatabaseBtn.addEventListener('click', async () => {
+      if (confirm("⚠️ Are you sure you want to clear the database?")) {
         try {
           clearDatabaseBtn.disabled = true;
           clearDatabaseBtn.textContent = "Clearing...";
-          const response = await fetch(`${baseURL}/clear-database`, { method: 'POST' });
-          const result = await response.json();
-          if (result.success) {
-            alert("Database cleared successfully.");
-            tableHead.innerHTML = "";
-            tableBody.innerHTML = "";
-          } else {
-            alert("Failed to clear database.");
-          }
-        } catch (error) {
-          console.error('Error clearing database:', error);
+          const res = await fetch(`${baseURL}/clear-database`, { method: 'POST' });
+          const result = await res.json();
+          alert(result.success ? "Database cleared." : "Failed to clear database.");
+          tableHead.innerHTML = '';
+          tableBody.innerHTML = '';
+          tripCards.innerHTML = '';
+        } catch (e) {
+          console.error(e);
           alert("Error clearing database.");
         } finally {
           clearDatabaseBtn.disabled = false;

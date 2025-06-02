@@ -237,7 +237,8 @@ app.get("/api/:table", (req, res) => {
     "RangeVerticalTable",
     "RangeAccuracyTable",
     "RangeSpeedTable",
-    "SampleTable"
+    "SampleTable",
+    "devices"
   ];
 
   if (!allowedTables.includes(tableName)) {
@@ -443,7 +444,7 @@ app.get('/triprecordfordevice', (req, res) => {
 
 
 // Replace "0.0.0.0" with your local IP (e.g., "192.168.1.100")
-const LOCAL_IP =  "192.168.11.65"; // Change this to your IP
+const LOCAL_IP =  "192.168.0.198"; // Change this to your IP
 const PORT = 5000;
 
 app.listen(PORT, LOCAL_IP, () => console.log(`✅ API running at http://${LOCAL_IP}:${PORT}`));
