@@ -7,7 +7,7 @@ app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use(cors());
 // Correct file path
-const dbPath = "C:/Users/Accurate AI/AndroidStudioProjects/raxel_tracker/db/tracking_raw_DB_150525.db";
+const dbPath = "/home/accurate/AndroidStudioProjects/AccurateDamooveBackend/db/tracking_raw_DB_150525.db";
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error("❌ Error opening database:", err.message);
@@ -67,6 +67,11 @@ const insertBulkData = (table, columns, records, res) => {
   }
 };
 
+// check server is up and running
+
+app.get('/health', (req, res) => {
+  res.sendStatus(200);
+});
 
 
 // ✅ Insert into `TrackTable`
