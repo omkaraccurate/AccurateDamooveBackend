@@ -267,69 +267,66 @@ app.get('/triprecords', (req, res) => {
 
   const query = `
     SELECT 
-    start_points.UNIQUE_ID,
-    track.start_date,
-    start_points.latitude AS start_latitude,
-    start_points.longitude AS start_longitude,
-    end_points.latitude AS end_latitude,
-    end_points.longitude AS end_longitude,
-    start_points.device_id,
+      start_points.UNIQUE_ID,
+      track.start_date,
+      start_points.latitude AS start_latitude,
+      start_points.longitude AS start_longitude,
+      end_points.latitude AS end_latitude,
+      end_points.longitude AS end_longitude,
+      start_points.device_id,
+      devices.device_name,
 
-    6371 * acos(
-        cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
-        cos(radians(end_points.longitude) - radians(start_points.longitude)) +
-        sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
-    ) AS distance_km
+      6371 * acos(
+          cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+          cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+          sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+      ) AS distance_km
 
-FROM
-    (SELECT UNIQUE_ID, latitude, longitude, device_id
-     FROM EventsStartPointTable
-     WHERE ID IN (
-         SELECT MIN(ID)
-         FROM EventsStartPointTable
-         GROUP BY UNIQUE_ID
-     )) AS start_points
+    FROM
+      (SELECT UNIQUE_ID, latitude, longitude, device_id
+       FROM EventsStartPointTable
+       WHERE ID IN (
+           SELECT MIN(ID)
+           FROM EventsStartPointTable
+           GROUP BY UNIQUE_ID
+       )) AS start_points
 
-JOIN
-    (SELECT UNIQUE_ID, latitude, longitude
-     FROM EventsStopPointTable
-     WHERE ID IN (
-         SELECT MAX(ID)
-         FROM EventsStopPointTable
-         GROUP BY UNIQUE_ID
-     )) AS end_points
-ON start_points.UNIQUE_ID = end_points.UNIQUE_ID
+    JOIN
+      (SELECT UNIQUE_ID, latitude, longitude
+       FROM EventsStopPointTable
+       WHERE ID IN (
+           SELECT MAX(ID)
+           FROM EventsStopPointTable
+           GROUP BY UNIQUE_ID
+       )) AS end_points
+    ON start_points.UNIQUE_ID = end_points.UNIQUE_ID
 
-JOIN TrackTable AS track
-ON start_points.UNIQUE_ID = track.track_id
+    JOIN TrackTable AS track
+    ON start_points.UNIQUE_ID = track.track_id
 
-WHERE
-    -- Ensure latitudes and longitudes are not 0 or invalid
-    start_points.latitude != 0 AND start_points.longitude != 0
-    AND end_points.latitude != 0 AND end_points.longitude != 0
-    
-    -- Distance should be greater than or equal to 1 km
-    AND 6371 * acos(
-        cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
-        cos(radians(end_points.longitude) - radians(start_points.longitude)) +
-        sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
-    ) >= 1;
+    LEFT JOIN devices
+    ON start_points.device_id = devices.device_id
 
-
+    WHERE
+      start_points.latitude != 0 AND start_points.longitude != 0
+      AND end_points.latitude != 0 AND end_points.longitude != 0
+      AND 6371 * acos(
+          cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+          cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+          sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+      ) >= 1;
   `;
 
-  console.log("Executing query: ", query);  // Debugging log
-
   db.all(query, [], (err, rows) => {
-      if (err) {
-          console.error('SQL Error:', err.message);
-          res.status(500).json({ error: err.message });
-      } else {
-          console.log("Query result: ", rows);  // Debugging log
-          res.status(200).json({ success: true, data: rows });
-      }
+    if (err) {
+      console.error('SQL Error:', err.message);
+      res.status(500).json({ error: err.message });
+    } else {
+      res.status(200).json({ success: true, data: rows });
+    }
   });
 });
+
 
 
 app.get('/geopoints', (req, res) => {
@@ -376,80 +373,82 @@ app.get('/geopoints', (req, res) => {
 
 
 app.get('/triprecordfordevice', (req, res) => {
-  console.log("Entering /triprecords");
+  console.log("Entering /triprecordfordevice");
 
   const { device_id } = req.query;
 
   if (!device_id) {
-      return res.status(400).json({ error: 'Missing device_id query parameter' });
+    return res.status(400).json({ error: 'Missing device_id query parameter' });
   }
 
   const query = `
-      SELECT 
-          start_points.UNIQUE_ID,
-          track.start_date,
-          start_points.latitude AS start_latitude,
-          start_points.longitude AS start_longitude,
-          end_points.latitude AS end_latitude,
-          end_points.longitude AS end_longitude,
-          start_points.device_id,
+    SELECT 
+      start_points.UNIQUE_ID,
+      track.start_date,
+      start_points.latitude AS start_latitude,
+      start_points.longitude AS start_longitude,
+      end_points.latitude AS end_latitude,
+      end_points.longitude AS end_longitude,
+      start_points.device_id,
+      devices.device_name,
 
-          6371 * acos(
-              cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
-              cos(radians(end_points.longitude) - radians(start_points.longitude)) +
-              sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
-          ) AS distance_km
+      6371 * acos(
+          cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+          cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+          sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+      ) AS distance_km
 
-      FROM
-          (SELECT UNIQUE_ID, latitude, longitude, device_id
+    FROM
+      (SELECT UNIQUE_ID, latitude, longitude, device_id
+       FROM EventsStartPointTable
+       WHERE ID IN (
+           SELECT MIN(ID)
            FROM EventsStartPointTable
-           WHERE ID IN (
-               SELECT MIN(ID)
-               FROM EventsStartPointTable
-               GROUP BY UNIQUE_ID
-           )) AS start_points
+           GROUP BY UNIQUE_ID
+       )) AS start_points
 
-      JOIN
-          (SELECT UNIQUE_ID, latitude, longitude
+    JOIN
+      (SELECT UNIQUE_ID, latitude, longitude
+       FROM EventsStopPointTable
+       WHERE ID IN (
+           SELECT MAX(ID)
            FROM EventsStopPointTable
-           WHERE ID IN (
-               SELECT MAX(ID)
-               FROM EventsStopPointTable
-               GROUP BY UNIQUE_ID
-           )) AS end_points
-      ON start_points.UNIQUE_ID = end_points.UNIQUE_ID
+           GROUP BY UNIQUE_ID
+       )) AS end_points
+    ON start_points.UNIQUE_ID = end_points.UNIQUE_ID
 
-      JOIN TrackTable AS track
-      ON start_points.UNIQUE_ID = track.track_id
+    JOIN TrackTable AS track
+    ON start_points.UNIQUE_ID = track.track_id
 
-      WHERE
-          start_points.latitude != 0 AND start_points.longitude != 0
-          AND end_points.latitude != 0 AND end_points.longitude != 0
-          AND 6371 * acos(
-              cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
-              cos(radians(end_points.longitude) - radians(start_points.longitude)) +
-              sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
-          ) >= 1
-          AND track.device_id = ?;
+    LEFT JOIN devices
+    ON start_points.device_id = devices.device_id
+
+    WHERE
+      start_points.latitude != 0 AND start_points.longitude != 0
+      AND end_points.latitude != 0 AND end_points.longitude != 0
+      AND 6371 * acos(
+          cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
+          cos(radians(end_points.longitude) - radians(start_points.longitude)) +
+          sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
+      ) >= 1
+      AND track.device_id = ?;
   `;
 
-  console.log("Executing query for device_id:", device_id);
-
   db.all(query, [device_id], (err, rows) => {
-      if (err) {
-          console.error('SQL Error:', err.message);
-          res.status(500).json({ error: err.message });
-      } else {
-          console.log("Query result: ", rows);
-          res.status(200).json({ success: true, data: rows });
-      }
+    if (err) {
+      console.error('SQL Error:', err.message);
+      res.status(500).json({ error: err.message });
+    } else {
+      res.status(200).json({ success: true, data: rows });
+    }
   });
 });
 
 
 
+
 // Replace "0.0.0.0" with your local IP (e.g., "192.168.1.100")
-const LOCAL_IP =  "192.168.0.198"; // Change this to your IP
+const LOCAL_IP =  "192.168.11.65"; // Change this to your IP
 const PORT = 5000;
 
 app.listen(PORT, LOCAL_IP, () => console.log(`✅ API running at http://${LOCAL_IP}:${PORT}`));
