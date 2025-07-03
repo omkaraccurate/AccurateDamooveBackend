@@ -16,8 +16,8 @@ app.use(cors());
 async function createDatabaseIfNotExists() {
   const connection = await mysql.createConnection({
     host: "localhost",
-    user: "root",
-    password: "password"
+    user: "fleet",
+    password: "fleetpass"
   });
   await connection.query(`CREATE DATABASE IF NOT EXISTS tracking_db`);
   console.log("✅ Database 'tracking_db' checked/created.");
