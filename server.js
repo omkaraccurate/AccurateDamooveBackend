@@ -574,8 +574,8 @@ app.get('/triprecordfordevice', (req, res) => {
 
 /////////////////////////////////////////////////
 
-const LOCAL_IP = "192.168.11.65";
-const PORT = 5000;
+const LOCAL_IP = "192.168.10.41";
+const PORT = 5001;
 
 app.listen(PORT, LOCAL_IP, () => console.log(`✅ API running at http://${LOCAL_IP}:${PORT}`));
 
