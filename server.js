@@ -28,8 +28,8 @@ await createDatabaseIfNotExists();
 
 const pool = mysql.createPool({
   host: "localhost",
-  user: "root",
-  password: "password",
+  user: "fleet",
+  password: "fleetpass",
   database: "tracking_db",
   waitForConnections: true,
   connectionLimit: 10,
