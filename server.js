@@ -463,6 +463,7 @@ app.get('/triprecords', (req, res) => {
 
 app.get('/geopoints', (req, res) => {
   const { unique_id } = req.query;
+  console.log("🔎 /geopoints?unique_id=", unique_id);
 
   if (!unique_id) {
     return res.status(400).json({
@@ -483,21 +484,20 @@ app.get('/geopoints', (req, res) => {
         SELECT latitude, longitude, ID
         FROM EventsStopPointTable
         WHERE UNIQUE_ID = ?
-    )
+    ) AS points
     ORDER BY ID ASC;
   `;
 
   pool.query(sql, [unique_id, unique_id])
-  .then(([rows]) => {
-    res.status(200).json({ success: true, data: rows });
-  })
-  .catch((err) => {
-  console.error('❌ Query error:', err);
-  res.status(500).json({ success: false, error: err.message });
+    .then(([rows]) => {
+      res.status(200).json({ success: true, data: rows });
+    })
+    .catch((err) => {
+      console.error('❌ Query error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    });
 });
 
-
-});
 
 
 
