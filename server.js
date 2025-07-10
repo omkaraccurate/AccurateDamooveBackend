@@ -492,9 +492,10 @@ app.get('/geopoints', (req, res) => {
     res.status(200).json({ success: true, data: rows });
   })
   .catch((err) => {
-    console.error('❌ Query error:', err.message);
-    res.status(500).json({ success: false, error: 'Database query failed' });
-  });
+  console.error('❌ Query error:', err);
+  res.status(500).json({ success: false, error: err.message });
+});
+
 
 });
 
