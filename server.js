@@ -20,8 +20,8 @@ async function createDatabaseIfNotExists() {
     user: "fleet",
     password: "fleetpass"
   });
-  await connection.query(`CREATE DATABASE IF NOT EXISTS tracking_db_2_0`);
-  console.log("✅ Database 'tracking_db_2_0' checked/created.");
+  await connection.query(`CREATE DATABASE IF NOT EXISTS accurate_tracking_db`);
+  console.log("✅ Database 'accurate_tracking_db' checked/created.");
   await connection.end();
 }
 
