@@ -85,12 +85,10 @@
   <main>
     <!-- Trips Section -->
     <section>
-      <h2>Trips 📍</h2>
-      <button onclick="fetchAllTrips()">Show All Trips</button>
-      <label for="deviceSelect">Device:</label>
-      <select id="deviceSelect" onchange="fetchTripsByDevice()"></select>
-      <div id="tripResult"></div>
-    </section>
+    <h2>Trips 📍</h2>
+    <button onclick="fetchAllTrips()">Show All Trips</button>
+    <div id="tripResult"></div>
+   </section>
 
     <!-- Tables Section -->
     <section>
@@ -107,6 +105,8 @@
         <option value="RangeVerticalTable">RangeVerticalTable</option>
         <option value="RangeAccuracyTable">RangeAccuracyTable</option>
         <option value="RangeSpeedTable">RangeSpeedTable</option>
+        <option value="devices">devices</option>
+        <option value="users">users</option>
       </select>
       <div id="tableResult"></div>
     </section>
