@@ -17,11 +17,11 @@ app.use(cors());
 async function createDatabaseIfNotExists() {
   const connection = await mysql.createConnection({
     host: "localhost",
-    user: "fleet",
-    password: "fleetpass"
+    user: "root",
+    password: "password"
   });
-  await connection.query(`CREATE DATABASE IF NOT EXISTS accurate_tracking_db`);
-  console.log("✅ Database 'accurate_tracking_db' checked/created.");
+  await connection.query(`CREATE DATABASE IF NOT EXISTS tracking_db_2_0`);
+  console.log("✅ Database 'tracking_db_2_0' checked/created.");
   await connection.end();
 }
 
@@ -29,9 +29,9 @@ await createDatabaseIfNotExists();
 
 const pool = mysql.createPool({
   host: "localhost",
-  user: "fleet",
-  password: "fleetpass",
-  database: "accurate_tracking_db",
+  user: "root",
+  password: "password",
+  database: "tracking_db_2_0",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -659,7 +659,7 @@ app.post('/api/login', async (req, res) => {
       [email]
     );
     if (rows.length === 0) {
-      return res.status(401).json({ error: "Invalid email or password." });
+      return res.status(401).json({ error: "false" });
     }
     const user = rows[0];
     const match = await bcrypt.compare(password, user.password_hash);
@@ -793,6 +793,88 @@ WHERE distance_km >= 1;
   }
 });
 
+
+app.get('/triprecordsForUser', async (req, res) => {
+  console.log("Entering /triprecordsForUser");
+
+  const { user_id } = req.query;
+  console.log("Running query for user_id:", user_id);
+
+  if (!user_id) {
+    return res.status(400).json({ error: 'Missing user_id query parameter' });
+  }
+
+  const query = `
+    SELECT DISTINCT
+      sp.UNIQUE_ID,
+      t.start_date,
+      sp.latitude AS start_latitude,
+      sp.longitude AS start_longitude,
+      ep.latitude AS end_latitude,
+      ep.longitude AS end_longitude,
+      sp.device_id,
+      d.device_name,
+      u.name AS user_name,
+
+      6371 * acos(
+        cos(radians(sp.latitude)) * cos(radians(ep.latitude)) *
+        cos(radians(ep.longitude) - radians(sp.longitude)) +
+        sin(radians(sp.latitude)) * sin(radians(ep.latitude))
+      ) AS distance_km
+
+    FROM (
+        SELECT e.*
+        FROM EventsStartPointTable e
+        INNER JOIN (
+            SELECT UNIQUE_ID, MIN(ID) AS min_id
+            FROM EventsStartPointTable
+            GROUP BY UNIQUE_ID
+        ) AS min_e
+        ON e.UNIQUE_ID = min_e.UNIQUE_ID AND e.ID = min_e.min_id
+    ) AS sp
+
+    JOIN (
+        SELECT e.*
+        FROM EventsStopPointTable e
+        INNER JOIN (
+            SELECT UNIQUE_ID, MAX(ID) AS max_id
+            FROM EventsStopPointTable
+            GROUP BY UNIQUE_ID
+        ) AS max_e
+        ON e.UNIQUE_ID = max_e.UNIQUE_ID AND e.ID = max_e.max_id
+    ) AS ep
+    ON sp.UNIQUE_ID = ep.UNIQUE_ID AND sp.user_id = ep.user_id
+
+    JOIN TrackTable t
+    ON sp.UNIQUE_ID = t.track_id AND sp.user_id = t.user_id
+
+    LEFT JOIN devices d
+    ON sp.device_id = d.device_id AND sp.user_id = d.user_id
+
+    LEFT JOIN users u
+    ON sp.user_id = u.id
+
+    WHERE
+      sp.latitude != 0 AND sp.longitude != 0
+      AND ep.latitude != 0 AND ep.longitude != 0
+      AND 6371 * acos(
+          cos(radians(sp.latitude)) * cos(radians(ep.latitude)) *
+          cos(radians(ep.longitude) - radians(sp.longitude)) +
+          sin(radians(sp.latitude)) * sin(radians(ep.latitude))
+      ) >= 1
+      AND t.user_id = ?
+      ORDER BY t.start_date DESC;
+      ;
+  `;
+
+  try {
+    const [rows] = await pool.query(query, [user_id]);
+    res.status(200).json({ success: true, data: rows });
+  } catch (err) {
+    console.error('SQL Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 
