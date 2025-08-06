@@ -222,7 +222,7 @@
       const user_id = localStorage.getItem("user_id");
       if (!user_id) throw new Error("Missing user_id");
 
-      const res = await fetch(`/triprecordsForUser?user_id=${user_id}`);
+      const res = await fetch(`/triprecordfordevice?user_id=${user_id}`);
       const data = await res.json();
 
       if (!res.ok || !data.success) throw new Error("Failed to load trips");
@@ -270,55 +270,63 @@
       return `${day}-${month}-${year}`;
     }
 
-    function displayTrips() {
-      const container = document.getElementById("tripResult");
-      const summary = document.getElementById("userSummary");
-      const userName = localStorage.getItem("user_name") || "User";
+function displayTrips() {
+  const container = document.getElementById("tripResult");
+  const summary = document.getElementById("userSummary");
+  const userName = localStorage.getItem("user_name") || "User";
 
-      if (!allTrips.length) {
-        container.innerHTML = "<p>No trips found.</p>";
-        summary.innerHTML = `Driver: <strong>${userName}</strong> | Trips: <strong>0</strong> | Total Distance: <strong>0.00 km</strong>`;
-        return;
-      }
+  if (!allTrips.length) {
+    container.innerHTML = "<p>No trips found.</p>";
+    summary.innerHTML = `Driver: <strong>${userName}</strong> | Trips: <strong>0</strong> | Total Distance: <strong>0.00 km</strong>`;
+    return;
+  }
 
-      const totalDistance = allTrips.reduce((sum, t) => sum + (parseFloat(t.distance_km) || 0), 0);
-      summary.innerHTML = `Driver: <strong>${userName}</strong> | Trips: <strong>${allTrips.length}</strong> | Total Distance: <strong>${totalDistance.toFixed(2)} km</strong>`;
+  const totalDistance = allTrips.reduce((sum, t) => sum + (parseFloat(t.distance_km) || 0), 0);
+  summary.innerHTML = `Driver: <strong>${userName}</strong> | Trips: <strong>${allTrips.length}</strong> | Total Distance: <strong>${totalDistance.toFixed(2)} km</strong>`;
 
-      let html = `
-        <table>
-          <thead>
-            <tr>
-              <th>UNIQUE_ID</th>
-              <th>Device</th>
-              <th>Start</th>
-              <th>Start Lat</th>
-              <th>Start Lng</th>
-              <th>End Lat</th>
-              <th>End Lng</th>
-              <th>Distance (km)</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Trip ID</th>
+          <th>Start Time</th>
+          <th>End Time</th>
+          <th>Duration</th>
+          <th>Start Lat</th>
+          <th>Start Lng</th>
+          <th>End Lat</th>
+          <th>End Lng</th>
+          <th>Distance (km)</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
 
-      allTrips.forEach(trip => {
-        html += `
-          <tr onclick="loadTripPath('${trip.UNIQUE_ID}')">
-            <td>${trip.UNIQUE_ID ?? "-"}</td>
-            <td>${trip.device_name ?? "-"}</td>
-            <td>${trip.start_date ? formatDate(trip.start_date) : "-"}</td>
-            <td>${trip.start_latitude ?? "-"}</td>
-            <td>${trip.start_longitude ?? "-"}</td>
-            <td>${trip.end_latitude ?? "-"}</td>
-            <td>${trip.end_longitude ?? "-"}</td>
-            <td>${trip.distance_km?.toFixed(2) ?? "0.00"}</td>
-          </tr>
-        `;
-      });
+  allTrips.forEach(trip => {
+    const [startLat, startLng] = trip.start_coordinates?.split(',') || ["-", "-"];
+    const [endLat, endLng] = trip.end_coordinates?.split(',') || ["-", "-"];
 
-      html += "</tbody></table>";
-      container.innerHTML = html;
-    }
+    html += `
+      <tr onclick="loadTripPath('${trip.unique_id}')">
+        <td>${trip.unique_id ?? "-"}</td>
+        <td>${trip.start_date_ist ?? "-"}</td>
+        <td>${trip.end_date_ist ?? "-"}</td>
+        <td>${trip.duration_hh_mm ?? "-"}</td>
+        <td>${startLat}</td>
+        <td>${startLng}</td>
+        <td>${endLat}</td>
+        <td>${endLng}</td>
+        <td>${trip.distance_km?.toFixed(2) ?? "0.00"}</td>
+      </tr>
+    `;
+  });
+
+  html += "</tbody></table>";
+  container.innerHTML = html;
+}
+
+
+
 
     async function loadTripPath(uniqueId) {
       const userId = localStorage.getItem("user_id");

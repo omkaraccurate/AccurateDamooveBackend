@@ -502,84 +502,88 @@ app.get('/geopoints', (req, res) => {
 
 
 
-
-app.get('/triprecordfordevice', (req, res) => {
+app.get('/triprecordfordevice', async (req, res) => {
   console.log("Entering /triprecordfordevice");
 
-  const { device_id, user_id } = req.query;
+  const { user_id } = req.query;
 
-  if (!device_id || !user_id) {
-    return res.status(400).json({ error: 'Missing device_id or user_id query parameter' });
+  if (!user_id) {
+    return res.status(400).json({ error: 'Missing user_id query parameter' });
   }
 
   const query = `
-    SELECT DISTINCT
-  sp.UNIQUE_ID,
-  t.start_date,
-  sp.latitude AS start_latitude,
-  sp.longitude AS start_longitude,
-  ep.latitude AS end_latitude,
-  ep.longitude AS end_longitude,
-  sp.device_id,
-  d.device_name,
+    SELECT 
+      s.unique_id,
 
-  6371 * acos(
-    cos(radians(sp.latitude)) * cos(radians(ep.latitude)) *
-    cos(radians(ep.longitude) - radians(sp.longitude)) +
-    sin(radians(sp.latitude)) * sin(radians(ep.latitude))
-  ) AS distance_km
+      DATE_FORMAT(
+        FROM_UNIXTIME(MIN(s.tick_timestamp)),
+        '%Y-%m-%d %H:%i:%s'
+      ) AS start_date_ist,
 
-FROM (
-    SELECT e.*
-    FROM EventsStartPointTable e
-    INNER JOIN (
-        SELECT UNIQUE_ID, MIN(ID) AS min_id
-        FROM EventsStartPointTable
-        GROUP BY UNIQUE_ID
-    ) AS min_e
-    ON e.UNIQUE_ID = min_e.UNIQUE_ID AND e.ID = min_e.min_id
-) AS sp
+      DATE_FORMAT(
+        FROM_UNIXTIME(MAX(s.tick_timestamp)),
+        '%Y-%m-%d %H:%i:%s'
+      ) AS end_date_ist,
 
-JOIN (
-    SELECT e.*
-    FROM EventsStopPointTable e
-    INNER JOIN (
-        SELECT UNIQUE_ID, MAX(ID) AS max_id
-        FROM EventsStopPointTable
-        GROUP BY UNIQUE_ID
-    ) AS max_e
-    ON e.UNIQUE_ID = max_e.UNIQUE_ID AND e.ID = max_e.max_id
-) AS ep
-ON sp.UNIQUE_ID = ep.UNIQUE_ID AND sp.user_id = ep.user_id
+      DATE_FORMAT(
+        SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)),
+        '%H:%i'
+      ) AS duration_hh_mm,
 
-JOIN TrackTable t
-ON sp.UNIQUE_ID = t.track_id AND sp.user_id = t.user_id
+      ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
 
-LEFT JOIN devices d
-ON sp.device_id = d.device_id AND sp.user_id = d.user_id
+      (
+        SELECT CONCAT_WS(',', s2.latitude, s2.longitude)
+        FROM SampleTable s2
+        WHERE s2.unique_id = s.unique_id
+          AND s2.latitude IS NOT NULL AND s2.longitude IS NOT NULL
+        ORDER BY s2.tick_timestamp ASC
+        LIMIT 1
+      ) AS start_coordinates,
 
-WHERE
-  sp.latitude != 0 AND sp.longitude != 0
-  AND ep.latitude != 0 AND ep.longitude != 0
-  AND 6371 * acos(
-      cos(radians(sp.latitude)) * cos(radians(ep.latitude)) *
-      cos(radians(ep.longitude) - radians(sp.longitude)) +
-      sin(radians(sp.latitude)) * sin(radians(ep.latitude))
-  ) >= 1
-  AND t.device_id = ?
-  AND t.user_id = ?;
+      (
+        SELECT CONCAT_WS(',', s3.latitude, s3.longitude)
+        FROM SampleTable s3
+        WHERE s3.unique_id = s.unique_id
+          AND s3.latitude IS NOT NULL AND s3.longitude IS NOT NULL
+        ORDER BY s3.tick_timestamp DESC
+        LIMIT 1
+      ) AS end_coordinates
 
+    FROM SampleTable s
+    WHERE s.tick_timestamp IS NOT NULL
+      AND s.user_id = ?
+    GROUP BY s.unique_id
+    HAVING 
+      distance_km >= 0.2
+      AND start_coordinates IS NOT NULL
+      AND end_coordinates IS NOT NULL
+      AND start_coordinates <> end_coordinates
+    ORDER BY start_date_ist DESC;
   `;
 
-  pool.query(query, [device_id, user_id])
-    .then(([rows]) => {
-      res.status(200).json({ success: true, data: rows });
-    })
-    .catch((err) => {
-      console.error('SQL Error:', err.message);
-      res.status(500).json({ error: err.message });
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.query("SET time_zone = '+05:30'");
+
+    const [rows] = await connection.query(query, [user_id]);
+
+    res.status(200).json({
+      success: true,
+      data: rows
     });
+  } catch (err) {
+    console.error('Error in /triprecordfordevice:', err.message);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
+  } finally {
+    // if (connection) connection.release();
+  }
 });
+
+
+
+
 
 
 
@@ -721,7 +725,7 @@ app.get('/userprofile', async (req, res) => {
 });
 
 app.get('/tripsummaryfordevice', async (req, res) => {
-  console.log("Entering /api/tripsummaryfordevice");
+  console.log("Entering /tripsummaryfordevice");
 
   const { device_id, user_id } = req.query;
 
@@ -730,68 +734,74 @@ app.get('/tripsummaryfordevice', async (req, res) => {
   }
 
   const query = `
-  SELECT 
-  COUNT(*) AS trip_count,
-  SUM(distance_km) AS total_distance_km
-FROM (
-  SELECT 
-    start_points.UNIQUE_ID,
-    6371 * acos(
-        cos(radians(start_points.latitude)) * cos(radians(end_points.latitude)) *
-        cos(radians(end_points.longitude) - radians(start_points.longitude)) +
-        sin(radians(start_points.latitude)) * sin(radians(end_points.latitude))
-    ) AS distance_km
-  FROM
-    (SELECT UNIQUE_ID, latitude, longitude, device_id, user_id
-     FROM EventsStartPointTable
-     WHERE ID IN (
-         SELECT MIN(ID)
-         FROM EventsStartPointTable
-         GROUP BY UNIQUE_ID
-     )) AS start_points
+    SELECT 
+      s.unique_id,
 
-  JOIN
-    (SELECT UNIQUE_ID, latitude, longitude, user_id
-     FROM EventsStopPointTable
-     WHERE ID IN (
-         SELECT MAX(ID)
-         FROM EventsStopPointTable
-         GROUP BY UNIQUE_ID
-     )) AS end_points
-  ON start_points.UNIQUE_ID = end_points.UNIQUE_ID
-     AND start_points.user_id = end_points.user_id
+      DATE_FORMAT(
+        FROM_UNIXTIME(MIN(s.tick_timestamp)),
+        '%Y-%m-%d %H:%i:%s'
+      ) AS start_date_ist,
 
-  JOIN TrackTable AS track
-  ON start_points.UNIQUE_ID = track.track_id
-     AND start_points.user_id = track.user_id
+      DATE_FORMAT(
+        FROM_UNIXTIME(MAX(s.tick_timestamp)),
+        '%Y-%m-%d %H:%i:%s'
+      ) AS end_date_ist,
 
-  WHERE
-    start_points.latitude != 0 AND start_points.longitude != 0
-    AND end_points.latitude != 0 AND end_points.longitude != 0
-    AND track.device_id = ?
-    AND track.user_id = ?
-) AS trip_data
-WHERE distance_km >= 1;
+      DATE_FORMAT(
+        SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)),
+        '%H:%i'
+      ) AS duration_hh_mm,
 
+      ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
 
+      (
+        SELECT CONCAT_WS(',', s2.latitude, s2.longitude)
+        FROM SampleTable s2
+        WHERE s2.unique_id = s.unique_id
+        ORDER BY s2.tick_timestamp ASC
+        LIMIT 1
+      ) AS start_coordinates,
+
+      (
+        SELECT CONCAT_WS(',', s3.latitude, s3.longitude)
+        FROM SampleTable s3
+        WHERE s3.unique_id = s.unique_id
+        ORDER BY s3.tick_timestamp DESC
+        LIMIT 1
+      ) AS end_coordinates
+
+    FROM SampleTable s
+    WHERE s.tick_timestamp IS NOT NULL
+      AND s.device_id = ?
+      AND s.user_id = ?
+    GROUP BY s.unique_id
+    HAVING 
+      distance_km >= 0.2 AND
+      start_coordinates <> end_coordinates
+    ORDER BY start_date_ist DESC;
   `;
 
   try {
-    const [rows] = await pool.query(query, [device_id, user_id]);
-    const result = rows[0];
+    const connection = await pool.getConnection();
+    try {
+      await connection.query("SET time_zone = '+05:30'");
 
-    res.status(200).json({
-      success: true,
-      data: {
-        completedTrips: result.trip_count || 0,
-        totalDistanceKm: parseFloat(result.total_distance_km || 0)
-      }
-    });
+      const [rows] = await connection.query(query, [device_id, user_id]);
+
+      res.status(200).json({
+        success: true,
+        data: rows
+      });
+    } finally {
+      //connection.release();
+    }
   } catch (err) {
-    console.error('SQL Error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('Error in /tripsummaryfordevice:', err.message);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 });
+
+
 
 
 app.get('/triprecordsForUser', async (req, res) => {
