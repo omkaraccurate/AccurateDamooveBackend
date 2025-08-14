@@ -17,11 +17,11 @@ app.use(cors());
 async function createDatabaseIfNotExists() {
   const connection = await mysql.createConnection({
     host: "localhost",
-    user: "root",
-    password: "password"
+    user: "fleet",
+    password: "fleetpass"
   });
-  await connection.query(`CREATE DATABASE IF NOT EXISTS tracking_db_2_0`);
-  console.log("✅ Database 'tracking_db_2_0' checked/created.");
+  await connection.query(`CREATE DATABASE IF NOT EXISTS accurate_tracking_db`);
+  console.log("✅ Database 'accurate_tracking_db' checked/created.");
   await connection.end();
 }
 
@@ -29,9 +29,9 @@ await createDatabaseIfNotExists();
 
 const pool = mysql.createPool({
   host: "localhost",
-  user: "root",
-  password: "password",
-  database: "tracking_db_2_0",
+  user: "fleet",
+  password: "fleetpass",
+  database: "accurate_tracking_db",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
