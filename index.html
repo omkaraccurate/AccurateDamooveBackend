@@ -211,6 +211,7 @@
       document.getElementById("dashboard").classList.remove("hidden");
 
       try {
+         await fetchUsersAndDevices();
         await fetchAllTrips();
       } catch (err) {
         alert("Session expired or server error. Please login again.");
@@ -393,6 +394,71 @@ function displayTrips() {
         showDashboard();
       }
     });
+
+
+async function fetchUsersAndDevices() {
+  try {
+    const res = await fetch('/api/userswithdevices');
+    console.log("HTTP status:", res.status); // Check HTTP status
+
+    // Read raw response text
+    const text = await res.text();
+    console.log("Raw response:", text);
+
+    // Parse JSON safely
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (jsonErr) {
+      console.error("Failed to parse JSON:", jsonErr);
+      alert("Invalid response from server.");
+      return;
+    }
+
+    // Check if API returned success
+    if (!data.success) {
+      console.error("API error:", data.error);
+      alert("Error fetching users & devices: " + (data.error || "Unknown error"));
+      return;
+    }
+
+    const users = data.data || [];
+
+    console.log("Users with devices:", users);
+
+    // Display users in dashboard
+    const dashboard = document.getElementById("dashboard");
+
+    // Remove previous container if exists
+    const oldContainer = document.getElementById("usersDevicesContainer");
+    if (oldContainer) dashboard.removeChild(oldContainer);
+
+    const container = document.createElement("div");
+    container.id = "usersDevicesContainer";
+    container.innerHTML = "<h3>Users & Devices</h3>";
+
+    users.forEach(user => {
+      const userBlock = document.createElement("div");
+      userBlock.style.marginBottom = "1rem";
+      userBlock.innerHTML = `
+        <strong>${user.name}</strong> (${user.email})<br>
+        Devices: ${user.devices.length > 0 
+          ? user.devices.map(d => d.device_name).join(", ") 
+          : "No devices"}
+      `;
+      container.appendChild(userBlock);
+    });
+
+    dashboard.appendChild(container);
+
+  } catch (err) {
+    console.error("Fetch failed:", err);
+    alert("Network error or server unreachable.");
+  }
+}
+
+
+
   </script>
 </body>
 </html>

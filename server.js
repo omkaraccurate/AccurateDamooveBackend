@@ -81,31 +81,7 @@ async function verifyDatabaseAndTables() {
       user_id INT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
-  EventsTable: `
-    CREATE TABLE IF NOT EXISTS EventsTable (
-      ID INT AUTO_INCREMENT PRIMARY KEY,
-      UUID VARCHAR(255),
-      timeStart BIGINT,
-      duration FLOAT,
-      pureDuration FLOAT,
-      speedStart FLOAT,
-      speedStop FLOAT,
-      speedMedian FLOAT,
-      prevEventSpeed FLOAT,
-      accelerationDirect FLOAT,
-      accelerationLateral FLOAT,
-      accelerationVertical FLOAT,
-      accelerationDirectEnd FLOAT,
-      accelerationLateralEnd FLOAT,
-      accelerationVerticalEnd FLOAT,
-      UNIQUE_ID VARCHAR(255),
-      type VARCHAR(255),
-      accidentTrigger VARCHAR(255),
-      reliability FLOAT,
-      device_id VARCHAR(255),
-      user_id INT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`,
+ 
   EventsStartPointTable: `
     CREATE TABLE IF NOT EXISTS EventsStartPointTable (
       ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -130,81 +106,7 @@ async function verifyDatabaseAndTables() {
       user_id INT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
-  RangeDirectTable: `
-    CREATE TABLE IF NOT EXISTS RangeDirectTable (
-      ID INT AUTO_INCREMENT PRIMARY KEY,
-      timeStart BIGINT,
-      max FLOAT,
-      min FLOAT,
-      median FLOAT,
-      quantile_05 FLOAT,
-      quantile_95 FLOAT,
-      UNIQUE_ID VARCHAR(255),
-      type VARCHAR(255),
-      device_id VARCHAR(255),
-      user_id INT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`,
-  RangeLateralTable: `
-    CREATE TABLE IF NOT EXISTS RangeLateralTable (
-      ID INT AUTO_INCREMENT PRIMARY KEY,
-      timeStart BIGINT,
-      max FLOAT,
-      min FLOAT,
-      median FLOAT,
-      quantile_05 FLOAT,
-      quantile_95 FLOAT,
-      UNIQUE_ID VARCHAR(255),
-      type VARCHAR(255),
-      device_id VARCHAR(255),
-      user_id INT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`,
-  RangeVerticalTable: `
-    CREATE TABLE IF NOT EXISTS RangeVerticalTable (
-      ID INT AUTO_INCREMENT PRIMARY KEY,
-      timeStart BIGINT,
-      max FLOAT,
-      min FLOAT,
-      median FLOAT,
-      quantile_05 FLOAT,
-      quantile_95 FLOAT,
-      UNIQUE_ID VARCHAR(255),
-      type VARCHAR(255),
-      device_id VARCHAR(255),
-      user_id INT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`,
-  RangeAccuracyTable: `
-    CREATE TABLE IF NOT EXISTS RangeAccuracyTable (
-      ID INT AUTO_INCREMENT PRIMARY KEY,
-      timeStart BIGINT,
-      max FLOAT,
-      min FLOAT,
-      median FLOAT,
-      quantile_05 FLOAT,
-      quantile_95 FLOAT,
-      UNIQUE_ID VARCHAR(255),
-      type VARCHAR(255),
-      device_id VARCHAR(255),
-      user_id INT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`,
-  RangeSpeedTable: `
-    CREATE TABLE IF NOT EXISTS RangeSpeedTable (
-      ID INT AUTO_INCREMENT PRIMARY KEY,
-      timeStart BIGINT,
-      max FLOAT,
-      min FLOAT,
-      median FLOAT,
-      quantile_05 FLOAT,
-      quantile_95 FLOAT,
-      UNIQUE_ID VARCHAR(255),
-      type VARCHAR(255),
-      device_id VARCHAR(255),
-      user_id INT,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )`,
+
   SampleTable: `
     CREATE TABLE IF NOT EXISTS SampleTable (
       ID INT AUTO_INCREMENT PRIMARY KEY,
@@ -327,14 +229,8 @@ app.get('/health', (req, res) => {
 const routes = [
   { path: "/api/TrackTable", table: "TrackTable", columns: ["id", "track_id", "track_state", "start_date", "stop_reason", "start_reason", "device_id", "user_id"] },
   { path: "/api/LastKnownPointTable", table: "LastKnownPointTable", columns: ["id", "track_id", "latitude", "longitude", "accuracy", "point_date", "point_origin", "device_id", "user_id"] },
-  { path: "/api/EventsTable", table: "EventsTable", columns: ["ID", "UUID", "timeStart", "duration", "pureDuration", "speedStart", "speedStop", "speedMedian", "prevEventSpeed", "accelerationDirect", "accelerationLateral", "accelerationVertical", "accelerationDirectEnd", "accelerationLateralEnd", "accelerationVerticalEnd", "UNIQUE_ID", "type", "accidentTrigger", "reliability", "device_id", "user_id"] },
   { path: "/api/EventsStartPointTable", table: "EventsStartPointTable", columns: ["ID", "timeStart", "latitude", "longitude", "UNIQUE_ID", "type", "device_id", "user_id"] },
   { path: "/api/EventsStopPointTable", table: "EventsStopPointTable", columns: ["ID", "timeStart", "latitude", "longitude", "UNIQUE_ID", "type", "device_id", "user_id"] },
-  { path: "/api/RangeDirectTable", table: "RangeDirectTable", columns: ["ID", "timeStart", "max", "min", "median", "quantile_05", "quantile_95", "UNIQUE_ID", "type", "device_id", "user_id"] },
-  { path: "/api/RangeLateralTable", table: "RangeLateralTable", columns: ["ID", "timeStart", "max", "min", "median", "quantile_05", "quantile_95", "UNIQUE_ID", "type", "device_id", "user_id"] },
-  { path: "/api/RangeVerticalTable", table: "RangeVerticalTable", columns: ["ID", "timeStart", "max", "min", "median", "quantile_05", "quantile_95", "UNIQUE_ID", "type", "device_id", "user_id"] },
-  { path: "/api/RangeAccuracyTable", table: "RangeAccuracyTable", columns: ["ID", "timeStart", "max", "min", "median", "quantile_05", "quantile_95", "UNIQUE_ID", "type", "device_id", "user_id"] },
-  { path: "/api/RangeSpeedTable", table: "RangeSpeedTable", columns: ["ID", "timeStart", "max", "min", "median", "quantile_05", "quantile_95", "UNIQUE_ID", "type", "device_id", "user_id"] },
   { path: "/api/SampleTable", table: "SampleTable", columns: [
     "ID", "latitude", "longitude", "timestamp", "tick_timestamp", "speed_kmh", "midSpeed", "course", "height", "acceleration", "deceleration", "lateral", "yaw", "total_meters", "established_indexA", "established_indexB", "start_date", "end_date", "unique_id", "number", "device_id", "user_id", "acceleration_x", "acceleration_y", "acceleration_z", "gyroscope_x", "gyroscope_y", "gyroscope_z", "acceleration_x_original", "acceleration_y_original", "acceleration_z_original", "gyroscope_x_original", "gyroscope_y_original", "gyroscope_z_original", "accuracy", "screen_on", "screen_blocked", "vehicle_indicators", "quantile"] }
 ];
@@ -385,14 +281,8 @@ app.get("/ui", (req, res) => {
 const ALLOWED_TABLES = new Set([
   "TrackTable",
   "LastKnownPointTable",
-  "EventsTable",
   "EventsStartPointTable",
   "EventsStopPointTable",
-  "RangeDirectTable",
-  "RangeLateralTable",
-  "RangeVerticalTable",
-  "RangeAccuracyTable",
-  "RangeSpeedTable",
   "SampleTable",
   "devices",
   "users"
@@ -426,46 +316,7 @@ app.get("/api/:table", (req, res) => {
 app.get("/ui", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
-app.get('/triprecords', (req, res) => {
-  console.log("Entering /triprecords");
 
-  const { user_id } = req.query;
-
-  if (!user_id) {
-    return res.status(400).json({ error: 'Missing user_id query parameter' });
-  }
-
-  const query = `
-    SELECT 
-  s1.UNIQUE_ID,
-  ROUND(SUM(
-    6371 * ACOS(
-      COS(RADIANS(s1.latitude)) * COS(RADIANS(s2.latitude)) *
-      COS(RADIANS(s2.longitude) - RADIANS(s1.longitude)) +
-      SIN(RADIANS(s1.latitude)) * SIN(RADIANS(s2.latitude))
-    )
-  ), 2) AS distance_km
-FROM SampleTable s1
-JOIN SampleTable s2
-  ON s1.UNIQUE_ID = s2.UNIQUE_ID
-  AND s2.id = s1.id + 1
-WHERE s1.latitude != 0 AND s1.longitude != 0
-  AND s2.latitude != 0 AND s2.longitude != 0
-GROUP BY s1.UNIQUE_ID;
-
-
-  `;
-
-  pool.query(query, [user_id])
-    .then(([rows]) => {
-      res.status(200).json({ success: true, data: rows });
-    })
-    .catch((err) => {
-      console.error('SQL Error:', err.message);
-      res.status(500).json({ error: err.message });
-    });
-
-});
 
 
 
@@ -512,54 +363,27 @@ app.get('/triprecordfordevice', async (req, res) => {
   }
 
   const query = `
-    SELECT 
+    SELECT
       s.unique_id,
-
-      DATE_FORMAT(
-        FROM_UNIXTIME(MIN(s.tick_timestamp)),
-        '%Y-%m-%d %H:%i:%s'
-      ) AS start_date_ist,
-
-      DATE_FORMAT(
-        FROM_UNIXTIME(MAX(s.tick_timestamp)),
-        '%Y-%m-%d %H:%i:%s'
-      ) AS end_date_ist,
-
-      DATE_FORMAT(
-        SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)),
-        '%H:%i'
-      ) AS duration_hh_mm,
-
+      DATE_FORMAT(FROM_UNIXTIME(MIN(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS start_date_ist,
+      DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
+      DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
       ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-
-      (
-        SELECT CONCAT_WS(',', s2.latitude, s2.longitude)
-        FROM SampleTable s2
-        WHERE s2.unique_id = s.unique_id
-          AND s2.latitude IS NOT NULL AND s2.longitude IS NOT NULL
-        ORDER BY s2.tick_timestamp ASC
-        LIMIT 1
-      ) AS start_coordinates,
-
-      (
-        SELECT CONCAT_WS(',', s3.latitude, s3.longitude)
-        FROM SampleTable s3
-        WHERE s3.unique_id = s.unique_id
-          AND s3.latitude IS NOT NULL AND s3.longitude IS NOT NULL
-        ORDER BY s3.tick_timestamp DESC
-        LIMIT 1
-      ) AS end_coordinates
-
+      CONCAT_WS(',', MIN(s.latitude), MIN(s.longitude)) AS start_coordinates,
+      CONCAT_WS(',', MAX(s.latitude), MAX(s.longitude)) AS end_coordinates
     FROM SampleTable s
     WHERE s.tick_timestamp IS NOT NULL
       AND s.user_id = ?
+      AND s.latitude IS NOT NULL
+      AND s.longitude IS NOT NULL
     GROUP BY s.unique_id
-    HAVING 
+    HAVING
       distance_km >= 0.2
       AND start_coordinates IS NOT NULL
       AND end_coordinates IS NOT NULL
       AND start_coordinates <> end_coordinates
-    ORDER BY start_date_ist DESC;
+    ORDER BY start_date_ist DESC
+    LIMIT 100;  -- optional pagination
   `;
 
   let connection;
@@ -567,7 +391,7 @@ app.get('/triprecordfordevice', async (req, res) => {
     connection = await pool.getConnection();
     await connection.query("SET time_zone = '+05:30'");
 
-    const [rows] = await connection.query(query, [user_id]);
+    const [rows] = await connection.query({ sql: query, timeout: 10000 }, [user_id]);
 
     res.status(200).json({
       success: true,
@@ -577,7 +401,7 @@ app.get('/triprecordfordevice', async (req, res) => {
     console.error('Error in /triprecordfordevice:', err.message);
     res.status(500).json({ error: 'Internal server error', details: err.message });
   } finally {
-    // if (connection) connection.release();
+    if (connection) connection.release();
   }
 });
 
@@ -724,174 +548,67 @@ app.get('/userprofile', async (req, res) => {
   }
 });
 
-app.get('/tripsummaryfordevice', async (req, res) => {
-  console.log("Entering /tripsummaryfordevice");
 
-  const { device_id, user_id } = req.query;
 
-  if (!device_id || !user_id) {
-    return res.status(400).json({ error: 'Missing device_id or user_id query parameter' });
-  }
 
-  const query = `
-    SELECT 
-      s.unique_id,
 
-      DATE_FORMAT(
-        FROM_UNIXTIME(MIN(s.tick_timestamp)),
-        '%Y-%m-%d %H:%i:%s'
-      ) AS start_date_ist,
 
-      DATE_FORMAT(
-        FROM_UNIXTIME(MAX(s.tick_timestamp)),
-        '%Y-%m-%d %H:%i:%s'
-      ) AS end_date_ist,
 
-      DATE_FORMAT(
-        SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)),
-        '%H:%i'
-      ) AS duration_hh_mm,
 
-      ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-
-      (
-        SELECT CONCAT_WS(',', s2.latitude, s2.longitude)
-        FROM SampleTable s2
-        WHERE s2.unique_id = s.unique_id
-        ORDER BY s2.tick_timestamp ASC
-        LIMIT 1
-      ) AS start_coordinates,
-
-      (
-        SELECT CONCAT_WS(',', s3.latitude, s3.longitude)
-        FROM SampleTable s3
-        WHERE s3.unique_id = s.unique_id
-        ORDER BY s3.tick_timestamp DESC
-        LIMIT 1
-      ) AS end_coordinates
-
-    FROM SampleTable s
-    WHERE s.tick_timestamp IS NOT NULL
-      AND s.device_id = ?
-      AND s.user_id = ?
-    GROUP BY s.unique_id
-    HAVING 
-      distance_km >= 0.2 AND
-      start_coordinates <> end_coordinates
-    ORDER BY start_date_ist DESC;
-  `;
-
+// GET /api/users-with-devices
+app.get('/api/userswithdevices', async (req, res) => {
   try {
-    const connection = await pool.getConnection();
-    try {
-      await connection.query("SET time_zone = '+05:30'");
+    const [rows] = await pool.query(`
+      SELECT 
+        u.id AS user_id,
+        u.name AS user_name,
+        u.email,
+        d.id AS device_id,
+        d.device_id AS device_unique_id,
+        d.device_name
+      FROM \`tracking_db_2_0\`.\`users\` u
+      LEFT JOIN \`tracking_db_2_0\`.\`devices\` d ON u.id = d.user_id
+      ORDER BY u.id
+    `);
 
-      const [rows] = await connection.query(query, [device_id, user_id]);
+    const usersMap = {};
+    rows.forEach(u => {
+      if (!usersMap[u.user_id]) {
+        usersMap[u.user_id] = {
+          id: u.user_id,
+          name: u.user_name,
+          email: u.email,
+          devices: []
+        };
+      }
+      if (u.device_id) {
+        usersMap[u.user_id].devices.push({
+          id: u.device_id,
+          device_id: u.device_unique_id,
+          device_name: u.device_name
+        });
+      }
+    });
 
-      res.status(200).json({
-        success: true,
-        data: rows
-      });
-    } finally {
-      //connection.release();
-    }
+    res.json({ success: true, data: Object.values(usersMap) });
   } catch (err) {
-    console.error('Error in /tripsummaryfordevice:', err.message);
-    res.status(500).json({ error: 'Internal server error', details: err.message });
+    console.error("Error in /api/userswithdevices:", err);
+    res.json({ success: false, error: err.message });
   }
 });
 
 
 
 
-app.get('/triprecordsForUser', async (req, res) => {
-  console.log("Entering /triprecordsForUser");
 
-  const { user_id } = req.query;
-  console.log("Running query for user_id:", user_id);
 
-  if (!user_id) {
-    return res.status(400).json({ error: 'Missing user_id query parameter' });
-  }
-
-  const query = `
-    SELECT DISTINCT
-      sp.UNIQUE_ID,
-      t.start_date,
-      sp.latitude AS start_latitude,
-      sp.longitude AS start_longitude,
-      ep.latitude AS end_latitude,
-      ep.longitude AS end_longitude,
-      sp.device_id,
-      d.device_name,
-      u.name AS user_name,
-
-      6371 * acos(
-        cos(radians(sp.latitude)) * cos(radians(ep.latitude)) *
-        cos(radians(ep.longitude) - radians(sp.longitude)) +
-        sin(radians(sp.latitude)) * sin(radians(ep.latitude))
-      ) AS distance_km
-
-    FROM (
-        SELECT e.*
-        FROM EventsStartPointTable e
-        INNER JOIN (
-            SELECT UNIQUE_ID, MIN(ID) AS min_id
-            FROM EventsStartPointTable
-            GROUP BY UNIQUE_ID
-        ) AS min_e
-        ON e.UNIQUE_ID = min_e.UNIQUE_ID AND e.ID = min_e.min_id
-    ) AS sp
-
-    JOIN (
-        SELECT e.*
-        FROM EventsStopPointTable e
-        INNER JOIN (
-            SELECT UNIQUE_ID, MAX(ID) AS max_id
-            FROM EventsStopPointTable
-            GROUP BY UNIQUE_ID
-        ) AS max_e
-        ON e.UNIQUE_ID = max_e.UNIQUE_ID AND e.ID = max_e.max_id
-    ) AS ep
-    ON sp.UNIQUE_ID = ep.UNIQUE_ID AND sp.user_id = ep.user_id
-
-    JOIN TrackTable t
-    ON sp.UNIQUE_ID = t.track_id AND sp.user_id = t.user_id
-
-    LEFT JOIN devices d
-    ON sp.device_id = d.device_id AND sp.user_id = d.user_id
-
-    LEFT JOIN users u
-    ON sp.user_id = u.id
-
-    WHERE
-      sp.latitude != 0 AND sp.longitude != 0
-      AND ep.latitude != 0 AND ep.longitude != 0
-      AND 6371 * acos(
-          cos(radians(sp.latitude)) * cos(radians(ep.latitude)) *
-          cos(radians(ep.longitude) - radians(sp.longitude)) +
-          sin(radians(sp.latitude)) * sin(radians(ep.latitude))
-      ) >= 1
-      AND t.user_id = ?
-      ORDER BY t.start_date DESC;
-      ;
-  `;
-
-  try {
-    const [rows] = await pool.query(query, [user_id]);
-    res.status(200).json({ success: true, data: rows });
-  } catch (err) {
-    console.error('SQL Error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 
 
 /////////////////////////////////////////////////
 
 const LOCAL_IP = "0.0.0.0";
-const PORT = 5555;
+const PORT = 5556;
 
 app.listen(PORT, LOCAL_IP, () => console.log(`✅ API running at http://${LOCAL_IP}:${PORT}`));
 
