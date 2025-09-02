@@ -20,7 +20,7 @@ async function createDatabaseIfNotExists() {
     user: "fleet",
     password: "fleetpass"
   });
-  await connection.query(`CREATE DATABASE IF NOT EXISTS accurate_tracking_db_2_0`);
+  await connection.query(`CREATE DATABASE IF NOT EXISTS accurate_tracking_db`);
   console.log("✅ Database 'accurate_tracking_db' checked/created.");
   await connection.end();
 }
@@ -31,7 +31,7 @@ const pool = mysql.createPool({
   host: "localhost",
   user: "fleet",
   password: "fleetpass",
-  database: "accurate_tracking_db_2_0",
+  database: "accurate_tracking_db",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
