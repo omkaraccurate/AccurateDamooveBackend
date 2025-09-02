@@ -353,7 +353,7 @@ app.get('/geopoints', (req, res) => {
 
 
 
-app.get('/triprecordfordevice', async (req, res) => {
+app.get('/triprecordfordevice1', async (req, res) => {
   console.log("Entering /triprecordfordevice");
 
   const { user_id } = req.query;
@@ -369,8 +369,14 @@ app.get('/triprecordfordevice', async (req, res) => {
     DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
     ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    CONCAT_WS(',', MIN(s.latitude), MIN(s.longitude)) AS start_coordinates,
-    CONCAT_WS(',', MAX(s.latitude), MAX(s.longitude)) AS end_coordinates
+    CONCAT_WS(',', 
+    CAST(MIN(s.latitude) AS DECIMAL(10,7)), 
+    CAST(MIN(s.longitude) AS DECIMAL(10,7))
+) AS start_coordinates,
+CONCAT_WS(',', 
+    CAST(MAX(s.latitude) AS DECIMAL(10,7)), 
+    CAST(MAX(s.longitude) AS DECIMAL(10,7))
+) AS end_coordinates
 FROM SampleTable s
 WHERE s.tick_timestamp IS NOT NULL
   AND s.user_id = ?
@@ -407,7 +413,80 @@ LIMIT 100
 
 
 
+app.get('/triprecordfordevice', async (req, res) => {
+  console.log("Entering /triprecordfordevice");
 
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).json({ error: 'Missing user_id query parameter' });
+  }
+
+  const query = `
+SELECT
+    s.unique_id,
+    DATE_FORMAT(FROM_UNIXTIME(start_row.tick_timestamp), '%Y-%m-%d %H:%i:%s') AS start_date_ist,
+    DATE_FORMAT(FROM_UNIXTIME(end_row.tick_timestamp), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
+    DATE_FORMAT(SEC_TO_TIME(end_row.tick_timestamp - start_row.tick_timestamp), '%H:%i') AS duration_hh_mm,
+    ROUND(end_row.total_meters / 1000, 2) AS distance_km,
+    CONCAT_WS(',', 
+              CAST(start_row.latitude AS DECIMAL(10,7)), 
+              CAST(start_row.longitude AS DECIMAL(10,7))) AS start_coordinates,
+    CONCAT_WS(',', 
+              CAST(end_row.latitude AS DECIMAL(10,7)), 
+              CAST(end_row.longitude AS DECIMAL(10,7))) AS end_coordinates
+FROM SampleTable s
+-- Join to get start row
+JOIN SampleTable start_row
+    ON start_row.unique_id = s.unique_id
+   AND start_row.tick_timestamp = (
+       SELECT MIN(tick_timestamp)
+       FROM SampleTable
+       WHERE unique_id = s.unique_id
+         AND latitude IS NOT NULL
+         AND longitude IS NOT NULL
+   )
+-- Join to get end row
+JOIN SampleTable end_row
+    ON end_row.unique_id = s.unique_id
+   AND end_row.tick_timestamp = (
+       SELECT MAX(tick_timestamp)
+       FROM SampleTable
+       WHERE unique_id = s.unique_id
+         AND latitude IS NOT NULL
+         AND longitude IS NOT NULL
+   )
+WHERE s.user_id = ?
+  AND start_row.latitude IS NOT NULL
+  AND start_row.longitude IS NOT NULL
+  AND end_row.latitude IS NOT NULL
+  AND end_row.longitude IS NOT NULL
+  AND ROUND(end_row.total_meters / 1000, 2) >= 0.2
+  AND (start_row.latitude <> end_row.latitude OR start_row.longitude <> end_row.longitude)
+GROUP BY s.unique_id
+ORDER BY start_date_ist DESC
+LIMIT 100;
+
+  `;
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.query("SET time_zone = '+05:30'");
+
+    const [rows] = await connection.query({ sql: query, timeout: 10000 }, [user_id]);
+
+    res.status(200).json({
+      success: true,
+      data: rows
+    });
+  } catch (err) {
+    console.error('Error in /triprecordfordevice:', err.message);
+    res.status(500).json({ error: 'Internal server error', details: err.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
 
 
