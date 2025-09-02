@@ -436,32 +436,30 @@ SELECT
               CAST(end_row.latitude AS DECIMAL(10,7)), 
               CAST(end_row.longitude AS DECIMAL(10,7))) AS end_coordinates
 FROM (
-    SELECT DISTINCT unique_id, user_id
+    SELECT 
+        unique_id,
+        user_id,
+        MIN(tick_timestamp) AS min_ts,
+        MAX(tick_timestamp) AS max_ts
     FROM SampleTable
     WHERE user_id = ?
+      AND latitude IS NOT NULL
+      AND longitude IS NOT NULL
+    GROUP BY unique_id, user_id
 ) s
 JOIN SampleTable start_row
     ON start_row.unique_id = s.unique_id
-   AND start_row.tick_timestamp = (
-       SELECT MIN(tick_timestamp)
-       FROM SampleTable
-       WHERE unique_id = s.unique_id
-         AND latitude IS NOT NULL
-         AND longitude IS NOT NULL
-   )
+   AND start_row.user_id = s.user_id
+   AND start_row.tick_timestamp = s.min_ts
 JOIN SampleTable end_row
     ON end_row.unique_id = s.unique_id
-   AND end_row.tick_timestamp = (
-       SELECT MAX(tick_timestamp)
-       FROM SampleTable
-       WHERE unique_id = s.unique_id
-         AND latitude IS NOT NULL
-         AND longitude IS NOT NULL
-   )
+   AND end_row.user_id = s.user_id
+   AND end_row.tick_timestamp = s.max_ts
 WHERE ROUND(end_row.total_meters / 1000, 2) >= 0.2
   AND (start_row.latitude <> end_row.latitude OR start_row.longitude <> end_row.longitude)
 ORDER BY start_date_ist DESC
 LIMIT 100
+
 
 
   `;
