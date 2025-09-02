@@ -369,8 +369,9 @@ app.get('/triprecordfordevice', async (req, res) => {
       DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
       DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
       ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-      CONCAT_WS(',', MIN(s.latitude), MIN(s.longitude)) AS start_coordinates,
-      CONCAT_WS(',', MAX(s.latitude), MAX(s.longitude)) AS end_coordinates
+      CONCAT(FORMAT(MIN(latitude), 7), ',', FORMAT(MIN(longitude), 7)) AS start_coordinates,
+      CONCAT(FORMAT(MAX(latitude), 7), ',', FORMAT(MAX(longitude), 7)) AS end_coordinates
+
     FROM SampleTable s
     WHERE s.tick_timestamp IS NOT NULL
       AND s.user_id = ?
