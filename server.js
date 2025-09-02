@@ -363,46 +363,43 @@ app.get('/triprecordfordevice', async (req, res) => {
   }
 
   const query = `
-   SELECT
-    s.unique_id,
-    DATE_FORMAT(FROM_UNIXTIME(MIN(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS start_date_ist,
-    DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
-    DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
-    ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    (
-        SELECT CONCAT(latitude, ',', longitude)
-        FROM SampleTable
-        WHERE unique_id = s.unique_id
-          AND user_id = s.user_id
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-        ORDER BY tick_timestamp ASC
-        LIMIT 1
-    ) AS start_coordinates,
-    (
-        SELECT CONCAT(latitude, ',', longitude)
-        FROM SampleTable
-        WHERE unique_id = s.unique_id
-          AND user_id = s.user_id
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-        ORDER BY tick_timestamp DESC
-        LIMIT 1
-    ) AS end_coordinates
-FROM SampleTable s
-WHERE s.tick_timestamp IS NOT NULL
-  AND s.user_id = ?
-  AND s.latitude IS NOT NULL
-  AND s.longitude IS NOT NULL
-GROUP BY s.unique_id
-HAVING
-  distance_km >= 0.2
-  AND start_coordinates IS NOT NULL
-  AND end_coordinates IS NOT NULL
-  AND start_coordinates <> end_coordinates
-ORDER BY start_date_ist DESC
-LIMIT 100
-
+    SELECT
+        s.unique_id,
+        DATE_FORMAT(FROM_UNIXTIME(MIN(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS start_date_ist,
+        DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
+        DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
+        ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
+        CONCAT(st.latitude, ',', st.longitude) AS start_coordinates,
+        CONCAT(et.latitude, ',', et.longitude) AS end_coordinates
+    FROM SampleTable s
+    JOIN SampleTable st
+        ON st.unique_id = s.unique_id
+        AND st.tick_timestamp = (
+            SELECT MIN(tick_timestamp)
+            FROM SampleTable
+            WHERE unique_id = s.unique_id
+              AND user_id = s.user_id
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+        )
+    JOIN SampleTable et
+        ON et.unique_id = s.unique_id
+        AND et.tick_timestamp = (
+            SELECT MAX(tick_timestamp)
+            FROM SampleTable
+            WHERE unique_id = s.unique_id
+              AND user_id = s.user_id
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+        )
+    WHERE s.tick_timestamp IS NOT NULL
+      AND s.user_id = ?
+      AND s.latitude IS NOT NULL
+      AND s.longitude IS NOT NULL
+    GROUP BY s.unique_id
+    HAVING distance_km >= 0.2
+    ORDER BY start_date_ist DESC
+    LIMIT 100;
   `;
 
   let connection;
@@ -410,7 +407,7 @@ LIMIT 100
     connection = await pool.getConnection();
     await connection.query("SET time_zone = '+05:30'");
 
-    const [rows] = await connection.query({ sql: query, timeout: 10000 }, [user_id]);
+    const [rows] = await connection.query({ sql: query, timeout: 60000 }, [user_id]); // increased timeout
 
     res.status(200).json({
       success: true,
@@ -423,6 +420,7 @@ LIMIT 100
     if (connection) connection.release();
   }
 });
+
 
 
 
