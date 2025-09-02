@@ -423,18 +423,6 @@ app.get('/triprecordfordevice', async (req, res) => {
   }
 
   const query = `
-CREATE TEMPORARY TABLE IF NOT EXISTS trip_times AS
-SELECT
-    unique_id,
-    user_id,
-    MIN(tick_timestamp) AS min_ts,
-    MAX(tick_timestamp) AS max_ts
-FROM SampleTable
-WHERE user_id = ?
-  AND latitude IS NOT NULL
-  AND longitude IS NOT NULL
-GROUP BY unique_id, user_id;
-
 SELECT
     t.unique_id,
     DATE_FORMAT(FROM_UNIXTIME(start_row.tick_timestamp), '%Y-%m-%d %H:%i:%s') AS start_date_ist,
@@ -443,7 +431,19 @@ SELECT
     ROUND(end_row.total_meters / 1000, 2) AS distance_km,
     CONCAT_WS(',', start_row.latitude, start_row.longitude) AS start_coordinates,
     CONCAT_WS(',', end_row.latitude, end_row.longitude) AS end_coordinates
-FROM trip_times t
+FROM (
+    -- Derived table: compute min/max timestamps per trip
+    SELECT 
+        unique_id,
+        user_id,
+        MIN(tick_timestamp) AS min_ts,
+        MAX(tick_timestamp) AS max_ts
+    FROM SampleTable
+    WHERE user_id = ?
+      AND latitude IS NOT NULL
+      AND longitude IS NOT NULL
+    GROUP BY unique_id, user_id
+) t
 JOIN SampleTable start_row
     ON start_row.unique_id = t.unique_id
    AND start_row.user_id = t.user_id
@@ -456,6 +456,7 @@ WHERE ROUND(end_row.total_meters / 1000, 2) >= 0.2
   AND (start_row.latitude <> end_row.latitude OR start_row.longitude <> end_row.longitude)
 ORDER BY start_date_ist DESC
 LIMIT 100
+
 
 
   `;
