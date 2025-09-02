@@ -353,7 +353,7 @@ app.get('/geopoints', (req, res) => {
 
 
 
-app.get('/triprecordfordevice', async (req, res) => {
+app.get('/triprecordfordevice2', async (req, res) => {
   console.log("Entering /triprecordfordevice");
 
   const { user_id } = req.query;
@@ -413,7 +413,7 @@ LIMIT 100
 
 
 
-app.get('/triprecordfordevice1', async (req, res) => {
+app.get('/triprecordfordevice', async (req, res) => {
   console.log("Entering /triprecordfordevice");
 
   const { user_id } = req.query;
@@ -429,12 +429,8 @@ SELECT
     DATE_FORMAT(FROM_UNIXTIME(end_row.tick_timestamp), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(end_row.tick_timestamp - start_row.tick_timestamp), '%H:%i') AS duration_hh_mm,
     ROUND(end_row.total_meters / 1000, 2) AS distance_km,
-    CONCAT_WS(',', 
-              CAST(start_row.latitude AS DECIMAL(10,7)), 
-              CAST(start_row.longitude AS DECIMAL(10,7))) AS start_coordinates,
-    CONCAT_WS(',', 
-              CAST(end_row.latitude AS DECIMAL(10,7)), 
-              CAST(end_row.longitude AS DECIMAL(10,7))) AS end_coordinates
+    CONCAT_WS(',', start_row.latitude, start_row.longitude) AS start_coordinates,
+    CONCAT_WS(',', end_row.latitude, end_row.longitude) AS end_coordinates
 FROM (
     SELECT 
         unique_id,
@@ -458,7 +454,8 @@ JOIN SampleTable end_row
 WHERE ROUND(end_row.total_meters / 1000, 2) >= 0.2
   AND (start_row.latitude <> end_row.latitude OR start_row.longitude <> end_row.longitude)
 ORDER BY start_date_ist DESC
-LIMIT 100
+LIMIT 100;
+
 
 
 
