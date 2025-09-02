@@ -363,30 +363,14 @@ app.get('/triprecordfordevice', async (req, res) => {
   }
 
   const query = `
-  SELECT
+   SELECT
     s.unique_id,
     DATE_FORMAT(FROM_UNIXTIME(MIN(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS start_date_ist,
     DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
     ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    (
-        SELECT CONCAT(latitude, ',', longitude)
-        FROM SampleTable
-        WHERE unique_id = s.unique_id
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-        ORDER BY tick_timestamp ASC
-        LIMIT 1
-    ) AS start_coordinates,
-    (
-        SELECT CONCAT(latitude, ',', longitude)
-        FROM SampleTable
-        WHERE unique_id = s.unique_id
-          AND latitude IS NOT NULL
-          AND longitude IS NOT NULL
-        ORDER BY tick_timestamp DESC
-        LIMIT 1
-    ) AS end_coordinates
+    CONCAT_WS(',', MIN(s.latitude), MIN(s.longitude)) AS start_coordinates,
+    CONCAT_WS(',', MAX(s.latitude), MAX(s.longitude)) AS end_coordinates
 FROM SampleTable s
 WHERE s.tick_timestamp IS NOT NULL
   AND s.user_id = ?
@@ -399,9 +383,7 @@ HAVING
     AND end_coordinates IS NOT NULL
     AND start_coordinates <> end_coordinates
 ORDER BY start_date_ist DESC
-LIMIT 100;
-
-
+LIMIT 100
   `;
 
   let connection;
