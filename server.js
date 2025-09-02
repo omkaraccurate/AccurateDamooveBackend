@@ -353,7 +353,7 @@ app.get('/geopoints', (req, res) => {
 
 
 
-app.get('/triprecordfordevice1', async (req, res) => {
+app.get('/triprecordfordevice', async (req, res) => {
   console.log("Entering /triprecordfordevice");
 
   const { user_id } = req.query;
@@ -413,7 +413,7 @@ LIMIT 100
 
 
 
-app.get('/triprecordfordevice', async (req, res) => {
+app.get('/triprecordfordevice1', async (req, res) => {
   console.log("Entering /triprecordfordevice");
 
   const { user_id } = req.query;
