@@ -374,10 +374,8 @@ app.get('/triprecordfordevice', async (req, res) => {
     DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
     ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    MIN(s.latitude) AS start_latitude,
-    MIN(s.longitude) AS start_longitude,
-    MAX(s.latitude) AS end_latitude,
-    MAX(s.longitude) AS end_longitude
+    CONCAT(MIN(s.latitude), ',', MIN(s.longitude)) AS start_coordinates,
+    CONCAT(MAX(s.latitude), ',', MAX(s.longitude)) AS end_coordinates
    FROM SampleTable s
    WHERE s.tick_timestamp IS NOT NULL
      AND s.user_id = ?
@@ -386,11 +384,9 @@ app.get('/triprecordfordevice', async (req, res) => {
    GROUP BY s.unique_id
    HAVING
        distance_km >= 0.2
-       AND start_latitude IS NOT NULL
-       AND start_longitude IS NOT NULL
-       AND end_latitude IS NOT NULL
-       AND end_longitude IS NOT NULL
-       AND (start_latitude <> end_latitude OR start_longitude <> end_longitude)
+       AND start_coordinates IS NOT NULL
+       AND end_coordinates IS NOT NULL
+       AND start_coordinates <> end_coordinates
    ORDER BY start_date_ist DESC
    LIMIT 100
   `;
@@ -413,6 +409,7 @@ app.get('/triprecordfordevice', async (req, res) => {
     if (connection) connection.release();
   }
 });
+
 
 
 
