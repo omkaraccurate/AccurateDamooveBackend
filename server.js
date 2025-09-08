@@ -110,8 +110,8 @@ async function verifyDatabaseAndTables() {
   SampleTable: `
     CREATE TABLE IF NOT EXISTS SampleTable (
       ID INT AUTO_INCREMENT PRIMARY KEY,
-      latitude DOUBLE,
-      longitude DOUBLE,
+      latitude DECIMAL(10,8) NOT NULL,
+      longitude DECIMAL(11,8) NOT NULL,
       timestamp BIGINT,
       tick_timestamp BIGINT,
       speed_kmh FLOAT,
@@ -172,52 +172,57 @@ const insertBulkData = async (table, columns, records, res) => {
     return res.status(400).json({ success: false, error: "No records provided!" });
   }
 
-  // Escape column names
-  const placeholders = columns.map(() => "?").join(", ");
   const escapedColumns = columns.map(col => `\`${col}\``).join(", ");
-  const sql = `INSERT INTO \`${table}\` (${escapedColumns}) VALUES (${placeholders})`;
+  const placeholders = `(${columns.map(() => "?").join(", ")})`;
+  const sql = `INSERT INTO \`${table}\` (${escapedColumns}) VALUES ${records.map(() => placeholders).join(", ")}`;
 
-  try {
-    const connection = await pool.getConnection();
-    let insertedCount = 0;
+  const values = [];
+  records.forEach((record, index) => {
+    columns.forEach(col => {
+      let val = record[col];
 
-    for (const [index, record] of records.entries()) {
-      try {
-        // Clean undefined -> null
-        const values = columns.map(col => record[col] === undefined ? null : record[col]);
-
-        await connection.execute(sql, values);
-        insertedCount++;
-      } catch (err) {
-        // Show which values are undefined
-        columns.forEach((col) => {
-          if (record[col] === undefined) {
-            console.warn(`⚠️ Undefined value for column '${col}' at index ${index}`);
-          }
-        });
-
-        console.error(`❌ Insert failed at index ${index} in ${table}:`, err.message);
-
-        if (err.message.includes("doesn't exist")) {
-          connection.release();
-          return res.status(500).json({ success: false, error: `Table "${table}" does not exist!` });
+      // ✅ Handle lat/long specifically
+      if ((col === "latitude" || col === "longitude") && val !== undefined && val !== null) {
+        val = Number(val); // force numeric for DECIMAL
+        if (isNaN(val)) {
+          console.warn(`⚠️ Invalid ${col} at index ${index}, setting to NULL`);
+          val = null;
         }
       }
-    }
+
+      if (val === undefined) {
+        console.warn(`⚠️ Undefined value for '${col}' at index ${index}`);
+        val = null;
+      }
+
+      values.push(val);
+    });
+  });
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    const [result] = await connection.query(sql, values);
 
     connection.release();
 
-    if (insertedCount === records.length) {
-      res.status(200).json({ success: true, message: `✅ ${insertedCount} record(s) inserted.` });
-    } else {
-      res.status(500).json({ success: false, error: "Some records failed to insert." });
-    }
+    return res.status(200).json({
+      success: true,
+      message: `✅ Inserted ${result.affectedRows} record(s) into ${table}.`
+    });
 
   } catch (err) {
-    console.error(`❌ Error inserting into ${table}:`, err.message);
-    res.status(500).json({ success: false, error: "Database connection error." });
+    if (connection) connection.release();
+    console.error(`❌ Insert failed in ${table}:`, err.message);
+
+    if (err.message.includes("doesn't exist")) {
+      return res.status(500).json({ success: false, error: `Table "${table}" does not exist!` });
+    }
+
+    return res.status(500).json({ success: false, error: "Bulk insert failed.", details: err.message });
   }
 };
+
 
 
 
