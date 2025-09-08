@@ -177,27 +177,34 @@ const insertBulkData = async (table, columns, records, res) => {
   const sql = `INSERT INTO \`${table}\` (${escapedColumns}) VALUES ${records.map(() => placeholders).join(", ")}`;
 
   const values = [];
+  const warnings = [];
+
   records.forEach((record, index) => {
     columns.forEach(col => {
       let val = record[col];
 
-      // ✅ Handle lat/long specifically
+      // Handle lat/long specifically
       if ((col === "latitude" || col === "longitude") && val !== undefined && val !== null) {
         val = Number(val); // force numeric for DECIMAL
         if (isNaN(val)) {
-          console.warn(`⚠️ Invalid ${col} at index ${index}, setting to NULL`);
+          warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
           val = null;
         }
       }
 
-      if (val === undefined) {
-        console.warn(`⚠️ Undefined value for '${col}' at index ${index}`);
+      if (val === undefined || val === null) {
+        warnings.push(`⚠️ [${table}] Undefined value for '${col}' at index ${index}, set to NULL`);
         val = null;
       }
 
       values.push(val);
     });
   });
+
+  if (warnings.length > 0) {
+    console.warn(`Bulk insert warnings for table "${table}" (${warnings.length}):`, warnings.slice(0, 10));
+    if (warnings.length > 10) console.warn(`...and ${warnings.length - 10} more warnings`);
+  }
 
   let connection;
   try {
@@ -213,7 +220,7 @@ const insertBulkData = async (table, columns, records, res) => {
 
   } catch (err) {
     if (connection) connection.release();
-    console.error(`❌ Insert failed in ${table}:`, err.message);
+    console.error(`❌ Insert failed in table "${table}":`, err.message);
 
     if (err.message.includes("doesn't exist")) {
       return res.status(500).json({ success: false, error: `Table "${table}" does not exist!` });
@@ -222,6 +229,7 @@ const insertBulkData = async (table, columns, records, res) => {
     return res.status(500).json({ success: false, error: "Bulk insert failed.", details: err.message });
   }
 };
+
 
 
 
