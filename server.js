@@ -374,27 +374,25 @@ app.get('/triprecordfordevice', async (req, res) => {
     DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
     ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    CONCAT_WS(',', 
-    CAST(MIN(s.latitude) AS DECIMAL(10,7)), 
-    CAST(MIN(s.longitude) AS DECIMAL(10,7))
-) AS start_coordinates,
-CONCAT_WS(',', 
-    CAST(MAX(s.latitude) AS DECIMAL(10,7)), 
-    CAST(MAX(s.longitude) AS DECIMAL(10,7))
-) AS end_coordinates
-FROM SampleTable s
-WHERE s.tick_timestamp IS NOT NULL
-  AND s.user_id = ?
-  AND s.latitude IS NOT NULL
-  AND s.longitude IS NOT NULL
-GROUP BY s.unique_id
-HAVING
-    distance_km >= 0.2
-    AND start_coordinates IS NOT NULL
-    AND end_coordinates IS NOT NULL
-    AND start_coordinates <> end_coordinates
-ORDER BY start_date_ist DESC
-LIMIT 100
+    MIN(s.latitude) AS start_latitude,
+    MIN(s.longitude) AS start_longitude,
+    MAX(s.latitude) AS end_latitude,
+    MAX(s.longitude) AS end_longitude
+   FROM SampleTable s
+   WHERE s.tick_timestamp IS NOT NULL
+     AND s.user_id = ?
+     AND s.latitude IS NOT NULL
+     AND s.longitude IS NOT NULL
+   GROUP BY s.unique_id
+   HAVING
+       distance_km >= 0.2
+       AND start_latitude IS NOT NULL
+       AND start_longitude IS NOT NULL
+       AND end_latitude IS NOT NULL
+       AND end_longitude IS NOT NULL
+       AND (start_latitude <> end_latitude OR start_longitude <> end_longitude)
+   ORDER BY start_date_ist DESC
+   LIMIT 100
   `;
 
   let connection;
@@ -415,6 +413,7 @@ LIMIT 100
     if (connection) connection.release();
   }
 });
+
 
 
 
