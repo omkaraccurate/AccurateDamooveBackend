@@ -167,39 +167,43 @@ async function verifyDatabaseAndTables() {
 
 await verifyDatabaseAndTables();
 
-const insertBulkData = async (table, columns, records, res) => {
+const insertBulkData = async (table, columns, records, res, chunkSize = 500) => {
   if (!Array.isArray(records) || records.length === 0) {
     return res.status(400).json({ success: false, error: "No records provided!" });
   }
 
   const escapedColumns = columns.map(col => `\`${col}\``).join(", ");
-  const placeholders = `(${columns.map(() => "?").join(", ")})`;
-  const sql = `INSERT INTO \`${table}\` (${escapedColumns}) VALUES ${records.map(() => placeholders).join(", ")}`;
-
-  const values = [];
   const warnings = [];
 
-  records.forEach((record, index) => {
-    columns.forEach(col => {
+  // Helper to process a single record
+  const processRecord = (record, index) => {
+    return columns.map(col => {
       let val = record[col];
 
-      // Handle lat/long specifically
-      if ((col === "latitude" || col === "longitude") && val !== undefined && val !== null) {
-        val = Number(val); // force numeric for DECIMAL
-        if (isNaN(val)) {
-          warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
-          val = null;
+      // Handle undefined/null
+      if (val === undefined || val === null) {
+        warnings.push(`⚠️ [${table}] Undefined/null value for '${col}' at index ${index}, set to NULL`);
+        return null;
+      }
+
+      // Latitude/Longitude: preserve exact original value as string
+      if (col === "latitude" || col === "longitude") {
+        if (typeof val === "number" || typeof val === "string") {
+          if (isNaN(Number(val))) {
+            warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
+            return null;
+          }
+          return val.toString();
+        } else {
+          warnings.push(`⚠️ [${table}] Invalid type for ${col} at index ${index}, set to NULL`);
+          return null;
         }
       }
 
-      if (val === undefined || val === null) {
-        warnings.push(`⚠️ [${table}] Undefined value for '${col}' at index ${index}, set to NULL`);
-        val = null;
-      }
-
-      values.push(val);
+      // For other columns, return as-is
+      return val;
     });
-  });
+  };
 
   if (warnings.length > 0) {
     console.warn(`Bulk insert warnings for table "${table}" (${warnings.length}):`, warnings.slice(0, 10));
@@ -209,26 +213,37 @@ const insertBulkData = async (table, columns, records, res) => {
   let connection;
   try {
     connection = await pool.getConnection();
-    const [result] = await connection.query(sql, values);
 
-    connection.release();
+    // Insert records in chunks to handle large arrays
+    for (let i = 0; i < records.length; i += chunkSize) {
+      const chunk = records.slice(i, i + chunkSize);
+      const placeholders = `(${columns.map(() => "?").join(", ")})`;
+      const sql = `INSERT INTO \`${table}\` (${escapedColumns}) VALUES ${chunk.map(() => placeholders).join(", ")}`;
+
+      const values = [];
+      chunk.forEach((record, idx) => {
+        values.push(...processRecord(record, i + idx));
+      });
+
+      await connection.query(sql, values);
+    }
 
     return res.status(200).json({
       success: true,
-      message: `✅ Inserted ${result.affectedRows} record(s) into ${table}.`
+      message: `✅ Inserted ${records.length} record(s) into ${table}.`
     });
 
   } catch (err) {
-    if (connection) connection.release();
-    console.error(`❌ Insert failed in table "${table}":`, err.message);
-
+    console.error(`❌ Insert failed in table "${table}":`, err);
     if (err.message.includes("doesn't exist")) {
       return res.status(500).json({ success: false, error: `Table "${table}" does not exist!` });
     }
-
     return res.status(500).json({ success: false, error: "Bulk insert failed.", details: err.message });
+  } finally {
+    if (connection) connection.release();
   }
 };
+
 
 
 
@@ -382,8 +397,8 @@ app.get('/triprecordfordevice', async (req, res) => {
     DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
     ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    CONCAT(MIN(s.latitude), ',', MIN(s.longitude)) AS start_coordinates,
-    CONCAT(MAX(s.latitude), ',', MAX(s.longitude)) AS end_coordinates
+    CONCAT(CAST(MIN(s.latitude) AS CHAR(12)), ',', CAST(MIN(s.longitude) AS CHAR(12))) AS start_coordinates,
+    CONCAT(CAST(MAX(s.latitude) AS CHAR(12)), ',', CAST(MAX(s.longitude) AS CHAR(12))) AS end_coordinates
    FROM SampleTable s
    WHERE s.tick_timestamp IS NOT NULL
      AND s.user_id = ?
@@ -438,8 +453,8 @@ SELECT
     DATE_FORMAT(FROM_UNIXTIME(end_row.tick_timestamp), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(end_row.tick_timestamp - start_row.tick_timestamp), '%H:%i') AS duration_hh_mm,
     ROUND(end_row.total_meters / 1000, 2) AS distance_km,
-    CONCAT_WS(',', start_row.latitude, start_row.longitude) AS start_coordinates,
-    CONCAT_WS(',', end_row.latitude, end_row.longitude) AS end_coordinates
+    CONCAT(CAST(MIN(s.latitude) AS CHAR(12)), ',', CAST(MIN(s.longitude) AS CHAR(12))) AS start_coordinates,
+    CONCAT(CAST(MAX(s.latitude) AS CHAR(12)), ',', CAST(MAX(s.longitude) AS CHAR(12))) AS end_coordinates
 FROM (
     -- Derived table: compute min/max timestamps per trip
     SELECT 
