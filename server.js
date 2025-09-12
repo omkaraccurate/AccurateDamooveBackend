@@ -186,16 +186,12 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
         return null;
       }
 
-      // Latitude/Longitude: preserve exact original value as string
+      // Latitude/Longitude: store as number
       if (col === "latitude" || col === "longitude") {
-        if (typeof val === "number" || typeof val === "string") {
-          if (isNaN(Number(val))) {
-            warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
-            return null;
-          }
-          return val.toString();
+        if (typeof val === "number" || (typeof val === "string" && !isNaN(Number(val)))) {
+          return Number(val); // ✅ store as numeric, MySQL DECIMAL/DOUBLE handles precision
         } else {
-          warnings.push(`⚠️ [${table}] Invalid type for ${col} at index ${index}, set to NULL`);
+          warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
           return null;
         }
       }
@@ -243,10 +239,6 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
     if (connection) connection.release();
   }
 };
-
-
-
-
 
 
 app.get('/health', (req, res) => {
