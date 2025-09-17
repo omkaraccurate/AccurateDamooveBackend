@@ -693,6 +693,31 @@ app.get('/api/userswithdevices', async (req, res) => {
 });
 
 
+// POST /api/system-events
+app.post('/api/systemevents', async (req, res) => {
+  const { device_id, user_id, event_message, event_type, timestamp } = req.body;
+
+  if (!device_id || !user_id || !event_message || !timestamp) {
+    return res.status(400).json({ success: false, error: "Missing required fields" });
+  }
+
+  const query = `
+    INSERT INTO SystemEventsTable (device_id, user_id, event_message, event_type, timestamp)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.query(query, [device_id, user_id, event_message, event_type, timestamp]);
+    res.status(200).json({ success: true, message: "Event logged" });
+  } catch (err) {
+    console.error("❌ Failed to insert system event:", err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
 
 
 
