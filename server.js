@@ -694,11 +694,18 @@ app.get('/api/userswithdevices', async (req, res) => {
 
 
 // POST /api/system-events
-app.post('systemevents', async (req, res) => {
+// ✅ POST /api/systemevents
+app.post("/systemevents", async (req, res) => {
+  console.log("inside /systemevents");
+
   const { device_id, user_id, event_message, event_type, timestamp } = req.body;
 
+  // 🔹 Validate input
   if (!device_id || !user_id || !event_message || !timestamp) {
-    return res.status(400).json({ success: false, error: "Missing required fields" });
+    return res.status(400).json({
+      success: false,
+      error: "Missing required fields (device_id, user_id, event_message, timestamp)",
+    });
   }
 
   const query = `
@@ -706,18 +713,26 @@ app.post('systemevents', async (req, res) => {
     VALUES (?, ?, ?, ?, ?)
   `;
 
-  let connection;
   try {
-    connection = await pool.getConnection();
-    await connection.query(query, [device_id, user_id, event_message, event_type, timestamp]);
-    res.status(200).json({ success: true, message: "Event logged" });
+    const [result] = await pool.execute(query, [
+      device_id,
+      user_id,
+      event_message,
+      event_type || null, // event_type can be optional
+      timestamp,
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: "System event logged successfully",
+      data: { id: result.insertId },
+    });
   } catch (err) {
-    console.error("❌ Failed to insert system event:", err);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    if (connection) connection.release();
+    console.error("❌ Error inserting system event:", err.message);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
+
 
 
 
