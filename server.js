@@ -694,7 +694,7 @@ app.get('/api/userswithdevices', async (req, res) => {
 
 
 // POST /api/system-events
-app.post('/api/systemevents', async (req, res) => {
+app.post('systemevents', async (req, res) => {
   const { device_id, user_id, event_message, event_type, timestamp } = req.body;
 
   if (!device_id || !user_id || !event_message || !timestamp) {
