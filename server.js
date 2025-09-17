@@ -149,7 +149,20 @@ async function verifyDatabaseAndTables() {
       screen_blocked BOOLEAN,
       vehicle_indicators VARCHAR(255),
       quantile TEXT
+    )`,
+  
+  SystemEventsTable: `
+    CREATE TABLE IF NOT EXISTS SystemEventsTable (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      device_id VARCHAR(255),
+      user_id INT,
+      event_message TEXT NOT NULL,
+      event_type VARCHAR(100),            
+      timestamp BIGINT NOT NULL,  
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`
+
 };
 
 
@@ -180,37 +193,33 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
     return columns.map(col => {
       let val = record[col];
 
-      // Handle undefined/null
       if (val === undefined || val === null) {
         warnings.push(`⚠️ [${table}] Undefined/null value for '${col}' at index ${index}, set to NULL`);
         return null;
       }
 
-      // Latitude/Longitude: store as number
+      // Latitude/Longitude: store as string to preserve exact formatting
       if (col === "latitude" || col === "longitude") {
-        if (typeof val === "number" || (typeof val === "string" && !isNaN(Number(val)))) {
-          return Number(val); // ✅ store as numeric, MySQL DECIMAL/DOUBLE handles precision
+        if (typeof val === "number" || typeof val === "string") {
+          return val.toString(); // ✅ preserve all decimals & trailing zeros
         } else {
           warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
           return null;
         }
       }
 
-      // For other columns, return as-is
-      return val;
+      return val; // other columns unchanged
     });
   };
 
   if (warnings.length > 0) {
     console.warn(`Bulk insert warnings for table "${table}" (${warnings.length}):`, warnings.slice(0, 10));
-    if (warnings.length > 10) console.warn(`...and ${warnings.length - 10} more warnings`);
   }
 
   let connection;
   try {
     connection = await pool.getConnection();
 
-    // Insert records in chunks to handle large arrays
     for (let i = 0; i < records.length; i += chunkSize) {
       const chunk = records.slice(i, i + chunkSize);
       const placeholders = `(${columns.map(() => "?").join(", ")})`;
@@ -231,14 +240,12 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
 
   } catch (err) {
     console.error(`❌ Insert failed in table "${table}":`, err);
-    if (err.message.includes("doesn't exist")) {
-      return res.status(500).json({ success: false, error: `Table "${table}" does not exist!` });
-    }
     return res.status(500).json({ success: false, error: "Bulk insert failed.", details: err.message });
   } finally {
     if (connection) connection.release();
   }
 };
+
 
 
 app.get('/health', (req, res) => {
@@ -389,8 +396,8 @@ app.get('/triprecordfordevice', async (req, res) => {
     DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
     ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    CONCAT(CAST(MIN(s.latitude) AS CHAR(12)), ',', CAST(MIN(s.longitude) AS CHAR(12))) AS start_coordinates,
-    CONCAT(CAST(MAX(s.latitude) AS CHAR(12)), ',', CAST(MAX(s.longitude) AS CHAR(12))) AS end_coordinates
+    CONCAT(MIN(s.latitude), ',', MIN(s.longitude)) AS start_coordinates,
+    CONCAT(MAX(s.latitude), ',', MAX(s.longitude)) AS end_coordinates
    FROM SampleTable s
    WHERE s.tick_timestamp IS NOT NULL
      AND s.user_id = ?
@@ -445,8 +452,9 @@ SELECT
     DATE_FORMAT(FROM_UNIXTIME(end_row.tick_timestamp), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(end_row.tick_timestamp - start_row.tick_timestamp), '%H:%i') AS duration_hh_mm,
     ROUND(end_row.total_meters / 1000, 2) AS distance_km,
-    CONCAT(CAST(MIN(s.latitude) AS CHAR(12)), ',', CAST(MIN(s.longitude) AS CHAR(12))) AS start_coordinates,
-    CONCAT(CAST(MAX(s.latitude) AS CHAR(12)), ',', CAST(MAX(s.longitude) AS CHAR(12))) AS end_coordinates
+    CONCAT(MIN(s.latitude), ',', MIN(s.longitude)) AS start_coordinates,
+    CONCAT(MAX(s.latitude), ',', MAX(s.longitude)) AS end_coordinates
+
 FROM (
     -- Derived table: compute min/max timestamps per trip
     SELECT 
