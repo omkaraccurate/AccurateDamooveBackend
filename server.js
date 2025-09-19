@@ -514,11 +514,13 @@ app.post('/api/registerWithDevice', async (req, res) => {
 
   const connection = await pool.getConnection();
   try {
+    const createdOn = new Date(); // capture timestamp in JS
+
     // Register user
     const password_hash = await bcrypt.hash(password, 10);
     const [userResult] = await connection.execute(
-      "INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)",
-      [email, password_hash, name || null]
+      "INSERT INTO users (email, password_hash, name, created_on) VALUES (?, ?, ?, ?)",
+      [email, password_hash, name || null, createdOn]
     );
     const user_id = userResult.insertId;
 
@@ -526,13 +528,13 @@ app.post('/api/registerWithDevice', async (req, res) => {
     if (device_id && device_name) {
       try {
         await connection.execute(
-          "INSERT INTO devices (device_id, device_name, user_id) VALUES (?, ?, ?)",
-          [device_id, device_name, user_id]
+          "INSERT INTO devices (device_id, device_name, user_id, created_on) VALUES (?, ?, ?, ?)",
+          [device_id, device_name, user_id, createdOn]
         );
       } catch (err) {
-        if (err.message.includes('Duplicate entry')) {
-          console.log("duplicate entry")
-          return res.status(409).json({ error: 'Device ID already exists', user_id });
+        if (err.message.includes("Duplicate entry")) {
+          console.log("duplicate entry");
+          return res.status(409).json({ error: "Device ID already exists", user_id });
         }
         throw err;
       }
@@ -545,9 +547,10 @@ app.post('/api/registerWithDevice', async (req, res) => {
     }
     res.status(500).json({ error: "Registration failed." });
   } finally {
-   // connection.release();
+    connection.release();
   }
 });
+
 
 // Registration endpoint
 app.post('/api/register', async (req, res) => {
