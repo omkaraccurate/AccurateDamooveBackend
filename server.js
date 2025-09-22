@@ -5,7 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import bcrypt from "bcrypt";
-
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -46,7 +47,9 @@ async function verifyDatabaseAndTables() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
-      name VARCHAR(255)
+      name VARCHAR(255),
+      created_on DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_login DATETIME NULL
     )`,
   devices: `
     CREATE TABLE IF NOT EXISTS devices (
@@ -164,6 +167,25 @@ async function verifyDatabaseAndTables() {
     )`
 
 };
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.status(401).json({ error: 'Token missing' });
+
+  jwt.verify(token, process.env.SECRET_KEY, (err, user) => {
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token expired' });
+      }
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    req.user = user; // attach payload to request
+    next();
+  });
+}
+
 
 
   for (const [tableName, createSQL] of Object.entries(tableDefinitions)) {
@@ -574,29 +596,66 @@ app.post('/api/register', async (req, res) => {
 });
 
 // Login endpoint
+const SECRET_KEY = process.env.SECRET_KEY || "your_secret_key"; // store in .env
+
+// Login endpoint
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
+
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required." });
   }
+
   try {
     const [rows] = await pool.execute(
-      "SELECT id, password_hash, name FROM users WHERE email = ?",
+      "SELECT id, password_hash, name, last_login, created_on FROM users WHERE email = ?",
       [email]
     );
+
     if (rows.length === 0) {
-      return res.status(401).json({ error: "false" });
+      return res.status(401).json({ error: "Invalid email or password." });
     }
+
     const user = rows[0];
+
+    // Verify password
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
-    res.status(200).json({ success: true, user_id: user.id, name: user.name });
+
+    // ✅ Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, email }, // payload
+      SECRET_KEY,
+      { expiresIn: "70d" } // token valid for 70 days
+    );
+
+    // ✅ Save previous last_login
+    const previousLogin = user.last_login;
+
+    // Update last_login to current time
+    await pool.execute(
+      "UPDATE users SET last_login = NOW() WHERE id = ?",
+      [user.id]
+    );
+
+    // ✅ Return response with token and login timestamps
+    res.status(200).json({
+      success: true,
+      user_id: user.id,
+      name: user.name,
+      token: token,
+      last_login: previousLogin, // previous login time
+      created_on: user.created_on
+    });
+
   } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ error: "Login failed." });
   }
 });
+
 
 
 ////device registration endpoint
@@ -645,12 +704,6 @@ app.get('/userprofile', async (req, res) => {
     res.status(500).json({ success: false, error: "Internal server error." });
   }
 });
-
-
-
-
-
-
 
 
 // GET /api/users-with-devices
