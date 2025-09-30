@@ -34,7 +34,7 @@ const pool = mysql.createPool({
   password: "fleetpass",
   database: "accurate_tracking_db",
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 50,
   queueLimit: 0
 });
 
@@ -223,7 +223,6 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
       // Latitude/Longitude: preserve exact formatting
       if (col === "latitude" || col === "longitude") {
         if (typeof val === "number" || typeof val === "string") {
-          console.log(`[DEBUG] [${table}] Row ${index} → ${col}: ${val}`);
           return val;
         } else {
           warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
@@ -267,7 +266,7 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
     console.error(`❌ Insert failed in table "${table}":`, err);
     return res.status(500).json({ success: false, error: "Bulk insert failed.", details: err.message });
   } finally {
-    //if (connection) connection.release();
+    if (connection) connection.release();
   }
 };
 
@@ -445,7 +444,7 @@ app.get('/triprecordfordevice', async (req, res) => {
     connection = await pool.getConnection();
     await connection.query("SET time_zone = '+05:30'");
 
-    const [rows] = await connection.query({ sql: query, timeout: 10000 }, [user_id]);
+    const [rows] = await connection.query({ sql: query, timeout: 60000 }, [user_id]);
 
     res.status(200).json({
       success: true,
@@ -455,7 +454,7 @@ app.get('/triprecordfordevice', async (req, res) => {
     console.error('Error in /triprecordfordevice:', err.message);
     res.status(500).json({ error: 'Internal server error', details: err.message });
   } finally {
-   // if (connection) connection.release();
+    if (connection) connection.release();
   }
 });
 
@@ -517,7 +516,7 @@ LIMIT 100
     connection = await pool.getConnection();
     await connection.query("SET time_zone = '+05:30'");
 
-    const [rows] = await connection.query({ sql: query, timeout: 10000 }, [user_id]);
+    const [rows] = await connection.query({ sql: query, timeout: 60000 }, [user_id]);
 
     res.status(200).json({
       success: true,
