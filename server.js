@@ -30,8 +30,8 @@ await createDatabaseIfNotExists();
 
 const pool = mysql.createPool({
   host: "localhost",
-  user: "fleet",
-  password: "fleetpass",
+  user: "root",
+  password: "password",
   database: "accurate_tracking_db",
   waitForConnections: true,
   connectionLimit: 10,
@@ -220,10 +220,11 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
         return null;
       }
 
-      // Latitude/Longitude: store as string to preserve exact formatting
+      // Latitude/Longitude: preserve exact formatting
       if (col === "latitude" || col === "longitude") {
         if (typeof val === "number" || typeof val === "string") {
-          return val; // ✅ preserve all decimals & trailing zeros
+          console.log(`[DEBUG] [${table}] Row ${index} → ${col}: ${val}`);
+          return val;
         } else {
           warnings.push(`⚠️ [${table}] Invalid ${col} at index ${index}, set to NULL`);
           return null;
@@ -252,6 +253,8 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
         values.push(...processRecord(record, i + idx));
       });
 
+      console.log(`[DEBUG] Inserting into table "${table}" → ${chunk.length} rows`);
+
       await connection.query(sql, values);
     }
 
@@ -264,9 +267,10 @@ const insertBulkData = async (table, columns, records, res, chunkSize = 500) => 
     console.error(`❌ Insert failed in table "${table}":`, err);
     return res.status(500).json({ success: false, error: "Bulk insert failed.", details: err.message });
   } finally {
-    if (connection) connection.release();
+    //if (connection) connection.release();
   }
 };
+
 
 
 
@@ -418,8 +422,8 @@ app.get('/triprecordfordevice', async (req, res) => {
     DATE_FORMAT(FROM_UNIXTIME(MAX(s.tick_timestamp)), '%Y-%m-%d %H:%i:%s') AS end_date_ist,
     DATE_FORMAT(SEC_TO_TIME(MAX(s.tick_timestamp) - MIN(s.tick_timestamp)), '%H:%i') AS duration_hh_mm,
     ROUND(MAX(s.total_meters) / 1000, 2) AS distance_km,
-    CONCAT(CAST(MIN(s.latitude) AS CHAR), ',', CAST(MIN(s.longitude) AS CHAR)) AS start_coordinates,
-    CONCAT(CAST(MAX(s.latitude) AS CHAR), ',', CAST(MAX(s.longitude) AS CHAR)) AS end_coordinates
+    CONCAT(MIN(s.latitude), ',', MIN(s.longitude)) AS start_coordinates,
+    CONCAT(MAX(s.latitude), ',', MAX(s.longitude)) AS end_coordinates
 
    FROM SampleTable s
    WHERE s.tick_timestamp IS NOT NULL
@@ -451,7 +455,7 @@ app.get('/triprecordfordevice', async (req, res) => {
     console.error('Error in /triprecordfordevice:', err.message);
     res.status(500).json({ error: 'Internal server error', details: err.message });
   } finally {
-    if (connection) connection.release();
+   // if (connection) connection.release();
   }
 });
 
